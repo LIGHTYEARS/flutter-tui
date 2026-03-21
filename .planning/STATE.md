@@ -2,38 +2,26 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-21)
+See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Flutter-faithful TUI framework with declarative widgets, box-constraint layout, and 60fps cell-level diff rendering
-**Current focus:** Phase 8: Examples & Integration
+**Current focus:** v1.1 Amp CLI Feature Parity — defining requirements
 
 ## Current Position
 
-Phase: 8 of 8 (Examples & Integration)
-Plan: 2 of 3 in current phase
-Status: Plan 08-02 complete
-Last activity: 2026-03-21 — Completed basic example applications
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-22 — Milestone v1.1 started
 
-Progress: [████████░░] 80%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
-**Velocity:**
-- Total plans completed: 1 (this session)
-- Average duration: ~5m
-- Total execution time: ~5m
-
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 8 | 1 | ~5m | ~5m |
-
-**Recent Trend:**
-- Last 5 plans: 08-02
-- Trend: Fast (examples are lightweight)
-
-*Updated after each plan completion*
+**Velocity (v1.0):**
+- Total plans completed: 25
+- Total test count: 1567 (0 failures)
+- Total examples: 28
 
 ## Accumulated Context
 
@@ -42,25 +30,24 @@ Progress: [████████░░] 80%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [Init]: Integer coordinates everywhere (terminal cells are discrete)
-- [Init]: Immutable Widget, mutable Element/RenderObject (Flutter-faithful)
-- [Init]: Synchronous frame pipeline (BUILD->LAYOUT->PAINT->RENDER)
-- [Init]: Cell-level diff for minimal ANSI output
-- [Init]: Zero runtime dependencies
-- [08-02]: Used FocusNode directly in counter (FocusScope widget not yet available)
-- [08-02]: BUN_TEST env guard pattern for testable example apps
-- [08-02]: Factory functions for testable widget tree construction
+- [v1.0]: Integer coordinates everywhere (terminal cells are discrete)
+- [v1.0]: Immutable Widget, mutable Element/RenderObject (Flutter-faithful)
+- [v1.0]: Synchronous frame pipeline (BUILD->LAYOUT->PAINT->RENDER)
+- [v1.0]: Cell-level diff for minimal ANSI output
+- [v1.0]: Zero runtime dependencies
+- [v1.1]: Kitty/Sixel image protocol deferred to v2 (not needed for core Amp parity)
 
 ### Pending Todos
 
-None yet.
+- Gap analysis completed — 11 missing widgets, 3 missing InheritedWidgets, 20+ missing RenderObject features identified
+- login-form stack overflow bug fixed (self-referential build guard in StatelessElement.rebuild)
 
 ### Blockers/Concerns
 
-None yet.
+None.
 
 ## Session Continuity
 
-Last session: 2026-03-21
-Stopped at: Completed 08-02-PLAN.md (basic example applications)
+Last session: 2026-03-22
+Stopped at: Defining v1.1 requirements and roadmap
 Resume file: None

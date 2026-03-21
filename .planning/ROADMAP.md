@@ -12,14 +12,14 @@ Build a complete Flutter-for-Terminal framework in TypeScript/Bun, progressing f
 
 ## Phases
 
-- [ ] **Phase 1: Core Primitives** — Type definitions, color model, text spans, box constraints, key system
-- [ ] **Phase 2: Terminal Layer** — Cell buffer, double-buffering, diff algorithm, ANSI renderer, raw mode I/O
-- [ ] **Phase 3: Widget Framework** — Three-tree core: Widget/Element/RenderObject lifecycle, BuildOwner, PipelineOwner, runApp
-- [ ] **Phase 4: Layout System** — Flex algorithm, padding, constrained box, decorated box, parent data
-- [ ] **Phase 5: Frame & Paint** — On-demand scheduler, 4-phase pipeline, PaintContext, ScreenBuffer integration
-- [ ] **Phase 6: Input System** — Keyboard/mouse events, input parser state machine, focus management, event dispatch
-- [ ] **Phase 7: High-Level Widgets** — Text, Container, Flex, ScrollView, ListView, TextField, Button, Table
-- [ ] **Phase 8: Diagnostics & Examples** — Performance overlay, frame stats, debug flags, 8 example applications
+- [x] **Phase 1: Core Primitives** — Type definitions, color model, text spans, box constraints, key system
+- [x] **Phase 2: Terminal Layer** — Cell buffer, double-buffering, diff algorithm, ANSI renderer, raw mode I/O
+- [x] **Phase 3: Widget Framework** — Three-tree core: Widget/Element/RenderObject lifecycle, BuildOwner, PipelineOwner, runApp
+- [x] **Phase 4: Layout System** — Flex algorithm, padding, constrained box, decorated box, parent data
+- [x] **Phase 5: Frame & Paint** — On-demand scheduler, 4-phase pipeline, PaintContext, ScreenBuffer integration
+- [x] **Phase 6: Input System** — Keyboard/mouse events, input parser state machine, focus management, event dispatch
+- [x] **Phase 7: High-Level Widgets** — Text, Container, Flex, ScrollView, ListView, TextField, Button, Table
+- [x] **Phase 8: Diagnostics & Examples** — Performance overlay, frame stats, debug flags, 28 example applications
 
 ## Dependency DAG
 
@@ -206,16 +206,16 @@ Optimized wave structure based on dependency DAG. Wall-clock critical path = 6 w
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Primitives | 0/3 | Not started | - |
-| 2. Terminal Layer | 0/3 | Not started | - |
-| 3. Widget Framework | 0/4 | Not started | - |
-| 4. Layout System | 0/2 | Not started | - |
-| 5. Frame & Paint | 0/3 | Not started | - |
-| 6. Input System | 0/3 | Not started | - |
-| 7. High-Level Widgets | 0/4 | Not started | - |
-| 8. Diagnostics & Examples | 0/3 | Not started | - |
+| 1. Core Primitives | 3/3 | Complete | 2026-03-21 |
+| 2. Terminal Layer | 3/3 | Complete | 2026-03-21 |
+| 3. Widget Framework | 4/4 | Complete | 2026-03-21 |
+| 4. Layout System | 2/2 | Complete | 2026-03-21 |
+| 5. Frame & Paint | 3/3 | Complete | 2026-03-21 |
+| 6. Input System | 3/3 | Complete | 2026-03-21 |
+| 7. High-Level Widgets | 4/4 | Complete | 2026-03-21 |
+| 8. Diagnostics & Examples | 3/3 | Complete | 2026-03-21 |
 
-**Total plans: 25** (was 21; +4 from splits and integration plans)
+**Total plans: 25/25 complete** — v1.0 MVP shipped
 
 ---
 

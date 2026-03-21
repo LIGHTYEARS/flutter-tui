@@ -8,26 +8,46 @@ A complete TUI (Terminal User Interface) rendering framework for TypeScript/Bun,
 
 Deliver a production-grade, Flutter-faithful TUI framework where developers compose terminal UIs from declarative widgets with real layout constraints, achieving on-demand rendering through cell-level diffing — no other TypeScript TUI library provides this architecture.
 
+## Current Milestone: v1.1 Amp CLI Feature Parity
+
+**Goal:** Close all remaining gaps between flutter-tui and Amp CLI's reverse-engineered TUI implementation to achieve 100% feature parity.
+
+**Target features:**
+- Missing widgets: FocusScope/KeyboardListener, Scrollbar, SelectionList/Dialog, DiffView, ClipRect, IntrinsicHeight, Markdown, ContainerWithOverlays
+- Missing infrastructure: MediaQuery, Theme, HoverContext InheritedWidgets
+- Missing framework: WidgetsBinding enhancements, async runApp, TextStyle/TextSpan API completions
+- Missing render capabilities: RenderText selection/highlight/hyperlink, RenderFlex intrinsic sizes, ClipCanvas
+- Missing systems: MouseTracker/MouseManager, ScrollController animation/followMode, Debug Inspector
+
 ## Requirements
 
 ### Validated
 
-<!-- Shipped and confirmed valuable. -->
+<!-- Shipped and confirmed valuable — v1.0 MVP -->
 
-(None yet — ship to validate)
+- [x] Core type primitives (Offset, Size, Rect, Color, TextStyle, TextSpan, BoxConstraints, Key, Listenable/ChangeNotifier) — v1.0
+- [x] Terminal abstraction layer (Cell, ScreenBuffer with full-grid diff, ANSI renderer, raw mode, capability detection) — v1.0
+- [x] Three-tree framework (Widget/Element/RenderObject lifecycle, canUpdate, updateChild 4-case, updateChildren O(N), ErrorWidget, BuildOwner, PipelineOwner, runApp) — v1.0
+- [x] Layout system (Flex 6-step algorithm, Padding, ConstrainedBox, DecoratedBox) — v1.0
+- [x] Frame scheduler + paint pipeline (on-demand rendering, 4-phase pipeline, PaintContext, ScreenBuffer integration) — v1.0
+- [x] Input system (keyboard, mouse SGR, input parser state machine, focus management, event dispatch pipeline) — v1.0
+- [x] High-level widgets (Text, DefaultTextStyle, Container, Row, Column, ScrollView, TextField, Button, Table, Stack, etc.) — v1.0
+- [x] Diagnostics + examples (PerformanceOverlay, FrameStats, debug flags, 28 example apps) — v1.0
 
 ### Active
 
-<!-- Current scope. Building toward these. -->
+<!-- Current scope: v1.1 Amp CLI Feature Parity -->
 
-- [ ] Core type primitives (Offset, Size, Rect, Color, TextStyle, TextSpan, BoxConstraints, Key, Listenable/ChangeNotifier)
-- [ ] Terminal abstraction layer (Cell, ScreenBuffer with full-grid diff, ANSI renderer, raw mode, capability detection)
-- [ ] Three-tree framework (Widget/Element/RenderObject lifecycle, canUpdate, updateChild 4-case, updateChildren O(N), ErrorWidget, BuildOwner, PipelineOwner, runApp; no RelayoutBoundary/RepaintBoundary per Amp)
-- [ ] Layout system (Flex 6-step algorithm, Padding, ConstrainedBox, DecoratedBox)
-- [ ] Frame scheduler + paint pipeline (on-demand rendering, 4-phase pipeline, PaintContext, ScreenBuffer integration)
-- [ ] Input system (keyboard, mouse SGR, input parser state machine, focus management, event dispatch pipeline)
-- [ ] High-level widgets (Text, DefaultTextStyle, Container, Row, Column, ScrollView, ListView, TextField, Button, Table)
-- [ ] Diagnostics + examples (PerformanceOverlay, FrameStats, debug flags, 8 example apps)
+- [ ] Missing widgets (FocusScope/KeyboardListener, Scrollbar, SelectionList/Dialog, DiffView, ClipRect, IntrinsicHeight, Markdown, ContainerWithOverlays)
+- [ ] Infrastructure InheritedWidgets (MediaQuery with MediaQueryData, Theme with color scheme, HoverContext)
+- [ ] WidgetsBinding enhancements (mouseManager, eventCallbacks, keyInterceptors, async runApp, MediaQuery wrapping)
+- [ ] TextStyle API completion (static factories, copyWith) and TextSpan API (hyperlink, onClick, equals)
+- [ ] RenderText advanced features (selection, highlight, hyperlink click, character position tracking)
+- [ ] RenderFlex intrinsic size methods (getMinIntrinsicWidth/Height, getMaxIntrinsicWidth/Height)
+- [ ] Mouse/cursor system (MouseTracker/MouseManager singleton, SystemMouseCursors, MouseRegion onDrag/onRelease)
+- [ ] ScrollController enhancements (animateTo, followMode, atBottom)
+- [ ] ClipCanvas paint wrapper
+- [ ] Debug Inspector HTTP server (port 9876, widget tree JSON endpoints)
 
 ### Out of Scope
 
@@ -35,9 +55,9 @@ Deliver a production-grade, Flutter-faithful TUI framework where developers comp
 
 - GPU rendering — terminal is character-cell based, no GPU acceleration needed
 - JSX/TSX syntax — pure TypeScript constructors, following Flutter's non-JSX pattern
-- Node.js compatibility layer — Bun-first, may work on Node but not a goal for v1 (platform.ts adapter isolates coupling)
+- Node.js compatibility layer — Bun-first, may work on Node but not a goal (platform.ts adapter isolates coupling)
 - Accessibility (screen reader) — complex and orthogonal to the core rendering architecture
-- Image protocol (Kitty/Sixel) — focus on text/box-drawing character rendering first
+- Image protocol (Kitty/Sixel) — ImagePreview, KittyImageWidget, ImagePreviewProvider deferred to v2; requires terminal capability negotiation
 - Animation framework — defer tweens/curves to v2; v1 handles manual setState-driven updates
 - Navigator/Route — screen management deferred to v2
 - Overlay/OverlayEntry — popup/dialog layer deferred to v2
@@ -135,5 +155,22 @@ Deliver a production-grade, Flutter-faithful TUI framework where developers comp
 | Vendored wcwidth over zero-dep purity | CJK width calculation is subtle (emoji, Hangul, ZWJ). Vendoring battle-tested table avoids rendering bugs. | Added |
 | Frame budget instrumentation | BUILD+LAYOUT+PAINT budget ≤12ms (leaving 4ms for RENDER+input). Debug warning when exceeded. | Added |
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd:transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: 2026-03-21 — Amp fidelity reconciliation after .reference/ extraction*
+*Last updated: 2026-03-22 — v1.1 milestone started (Amp CLI Feature Parity)*
