@@ -7,6 +7,9 @@
 // - Owns BuildOwner + PipelineOwner
 // - runApp creates the root element, attaches it, and schedules first frame
 // - Frame phases: build -> layout -> paint -> render
+//
+// Phase 5 upgrade: ScreenBuffer + Renderer integration, dirty state tracking,
+// frame phase methods (beginFrame, paint, render), handleResize via pending event
 
 import { BuildOwner } from './build-owner';
 import { PipelineOwner } from './pipeline-owner';
@@ -14,6 +17,9 @@ import { Widget, StatelessWidget, type BuildContext } from './widget';
 import { Element, StatelessElement } from './element';
 import { BoxConstraints } from '../core/box-constraints';
 import { Size } from '../core/types';
+import { ScreenBuffer } from '../terminal/screen-buffer';
+import { Renderer, type CursorState } from '../terminal/renderer';
+import { paintRenderTree } from '../scheduler/paint';
 
 // ---------------------------------------------------------------------------
 // Global build/paint scheduler accessors (Amp: lF, dF, VG8, XG8, xH)
@@ -130,13 +136,22 @@ class _RootWidget extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Output writer interface — abstracts stdout for testability
+// ---------------------------------------------------------------------------
+
+export interface OutputWriter {
+  write(data: string): void;
+}
+
+// ---------------------------------------------------------------------------
 // WidgetsBinding (Amp: J3) — singleton orchestrator
 //
-// Ties together BuildOwner, PipelineOwner, and the frame scheduler.
-// For Phase 3, this is a simplified version:
-// - No TUI terminal management (Phase 5)
-// - No FocusManager/MouseManager (Phase 6)
-// - Frame scheduling uses queueMicrotask instead of FrameScheduler
+// Ties together BuildOwner, PipelineOwner, ScreenBuffer, Renderer,
+// and the frame scheduler. Orchestrates the full 4-phase pipeline:
+//   BUILD -> LAYOUT -> PAINT -> RENDER
+//
+// Phase 5 upgrade: Real ScreenBuffer + Renderer integration with
+// dirty-state tracking and frame-skip optimization.
 // ---------------------------------------------------------------------------
 
 export class WidgetsBinding {
@@ -148,6 +163,17 @@ export class WidgetsBinding {
   private _renderViewSize: Size = new Size(80, 24); // default terminal size
   private _frameScheduled: boolean = false;
   private _isRunning: boolean = false;
+
+  // --- Dirty state tracking (Amp ref: J3 frame state) ---
+  private _forcePaintOnNextFrame: boolean = false;
+  private _shouldPaintCurrentFrame: boolean = false;
+  private _didPaintCurrentFrame: boolean = false;
+  private _pendingResizeEvent: { width: number; height: number } | null = null;
+
+  // --- Screen buffer + renderer (Phase 5) ---
+  private _screen: ScreenBuffer | null = null;
+  private _renderer: Renderer | null = null;
+  private _output: OutputWriter | null = null;
 
   private constructor() {
     this.buildOwner = new BuildOwner();
@@ -166,6 +192,9 @@ export class WidgetsBinding {
           this.pipelineOwner.removeFromQueues(node),
       },
     );
+
+    // Try to register frame callbacks with FrameScheduler if available
+    this._tryRegisterFrameCallbacks();
   }
 
   /**
@@ -184,6 +213,9 @@ export class WidgetsBinding {
     if (WidgetsBinding._instance) {
       WidgetsBinding._instance.buildOwner.dispose();
       WidgetsBinding._instance.pipelineOwner.dispose();
+      WidgetsBinding._instance._screen = null;
+      WidgetsBinding._instance._renderer = null;
+      WidgetsBinding._instance._output = null;
     }
     WidgetsBinding._instance = null;
     resetSchedulers();
@@ -196,6 +228,67 @@ export class WidgetsBinding {
   get isRunning(): boolean {
     return this._isRunning;
   }
+
+  // --- Screen buffer + renderer accessors ---
+
+  /**
+   * Get the screen buffer, lazy-creating if needed.
+   * Amp ref: J3 screen buffer access
+   */
+  getScreen(): ScreenBuffer {
+    if (!this._screen) {
+      this._screen = new ScreenBuffer(
+        this._renderViewSize.width,
+        this._renderViewSize.height,
+      );
+    }
+    return this._screen;
+  }
+
+  /**
+   * Get the renderer, lazy-creating if needed.
+   */
+  getRenderer(): Renderer {
+    if (!this._renderer) {
+      this._renderer = new Renderer();
+    }
+    return this._renderer;
+  }
+
+  /**
+   * Set the output writer (for testing — defaults to null, meaning no output).
+   * In production, call setOutput(process.stdout) to enable terminal output.
+   */
+  setOutput(output: OutputWriter | null): void {
+    this._output = output;
+  }
+
+  /**
+   * Get the current output writer.
+   */
+  getOutput(): OutputWriter | null {
+    return this._output;
+  }
+
+  // --- Dirty state accessors ---
+
+  get forcePaintOnNextFrame(): boolean {
+    return this._forcePaintOnNextFrame;
+  }
+
+  get shouldPaintCurrentFrame(): boolean {
+    return this._shouldPaintCurrentFrame;
+  }
+
+  get didPaintCurrentFrame(): boolean {
+    return this._didPaintCurrentFrame;
+  }
+
+  get pendingResizeEvent(): { width: number; height: number } | null {
+    return this._pendingResizeEvent;
+  }
+
+  // --- Lifecycle ---
 
   /**
    * Attach the root widget to create the three trees (widget/element/render).
@@ -222,61 +315,237 @@ export class WidgetsBinding {
       BoxConstraints.tight(this._renderViewSize),
     );
 
+    // Wire the root render object to the pipeline owner
+    this.updateRootRenderObject();
+
     this._isRunning = true;
   }
 
   /**
+   * Walk from rootElement to find the first render object and set it
+   * on the pipelineOwner.
+   * Amp ref: J3 updateRootRenderObject
+   */
+  updateRootRenderObject(): void {
+    if (!this._rootElement) return;
+
+    const renderObject = this._findRootRenderObject(this._rootElement);
+    if (renderObject) {
+      this.pipelineOwner.setRootRenderObject(renderObject as any);
+    }
+  }
+
+  /**
+   * DFS walk to find the first render object in the element tree.
+   */
+  private _findRootRenderObject(element: Element): any {
+    // Check if this element has a direct render object
+    if (element.renderObject) {
+      return element.renderObject;
+    }
+    // Recurse into children
+    for (const child of element.children) {
+      const ro = this._findRootRenderObject(child);
+      if (ro) return ro;
+    }
+    return null;
+  }
+
+  // --- Frame phase methods (Amp: J3 4-phase pipeline) ---
+
+  /**
+   * Begin frame — runs first in BUILD phase.
+   * Determines if paint is needed this frame based on dirty state.
+   *
+   * Amp ref: J3.beginFrame()
+   */
+  beginFrame(): void {
+    this._didPaintCurrentFrame = false;
+    this._shouldPaintCurrentFrame =
+      this._forcePaintOnNextFrame ||
+      this.buildOwner.hasDirtyElements ||
+      this.pipelineOwner.hasNodesNeedingLayout ||
+      this.pipelineOwner.hasNodesNeedingPaint ||
+      (this._screen?.requiresFullRefresh ?? false);
+    this._forcePaintOnNextFrame = false;
+  }
+
+  /**
+   * Process any pending resize event.
+   * Runs after beginFrame in the BUILD phase.
+   *
+   * Amp ref: J3.processResizeIfPending()
+   */
+  processResizeIfPending(): void {
+    if (!this._pendingResizeEvent) return;
+
+    const { width, height } = this._pendingResizeEvent;
+    this._pendingResizeEvent = null;
+
+    this._renderViewSize = new Size(width, height);
+    if (this._screen) {
+      this._screen.resize(width, height);
+    }
+    this.pipelineOwner.updateRootConstraints(this._renderViewSize);
+    this._shouldPaintCurrentFrame = true;
+  }
+
+  /**
+   * Paint phase — paints the render tree to the screen buffer.
+   * If shouldPaintCurrentFrame is false, this is a frame skip (no-op).
+   *
+   * Amp ref: J3.paint()
+   */
+  paint(): void {
+    if (!this._shouldPaintCurrentFrame) return;
+
+    // Flush paint dirty flags on the pipeline owner
+    this.pipelineOwner.flushPaint();
+
+    // Get root render object
+    const rootRO = this.pipelineOwner.rootNode;
+    if (!rootRO) return;
+
+    // Get or create screen buffer
+    const screen = this.getScreen();
+    screen.clear();
+
+    // DFS paint the render tree using the real PaintContext and paintRenderTree
+    paintRenderTree(rootRO, screen);
+
+    this._didPaintCurrentFrame = true;
+  }
+
+  /**
+   * Render phase — diffs the screen buffer and writes ANSI output.
+   * Only runs if paint phase actually executed (didPaintCurrentFrame).
+   *
+   * Amp ref: J3.render()
+   */
+  render(): void {
+    if (!this._didPaintCurrentFrame) return;
+
+    const screen = this.getScreen();
+    const renderer = this.getRenderer();
+
+    // Get diff from screen buffer
+    const patches = screen.getDiff();
+
+    // Build cursor state
+    const cursor: CursorState = {
+      position: screen.getCursor(),
+      visible: screen.isCursorVisible(),
+      shape: screen.getCursorShape(),
+    };
+
+    // Generate ANSI output
+    const output = renderer.render(patches, cursor);
+
+    // Write to output if available
+    if (this._output && output.length > 0) {
+      this._output.write(output);
+    }
+
+    // Swap buffers
+    screen.present();
+  }
+
+  // --- Resize handling ---
+
+  /**
    * Handle terminal resize.
+   * Sets pending resize event and requests a frame.
    *
    * Amp ref: WidgetsBinding resize handling — updates constraints, schedules frame
    */
   handleResize(width: number, height: number): void {
-    this._renderViewSize = new Size(width, height);
-    this.pipelineOwner.setConstraints(
-      BoxConstraints.tight(this._renderViewSize),
-    );
+    this._pendingResizeEvent = { width, height };
     this.scheduleFrame();
   }
 
   /**
-   * Schedule a frame (build + layout + paint).
-   * In Phase 5 this will use the FrameScheduler; for now, queueMicrotask.
+   * Request a forced paint on the next frame.
+   * Amp ref: J3.requestForcedPaintFrame()
+   */
+  requestForcedPaintFrame(): void {
+    this._forcePaintOnNextFrame = true;
+    this.scheduleFrame();
+  }
+
+  // --- Frame scheduling ---
+
+  /**
+   * Schedule a frame (build + layout + paint + render).
+   * Tries FrameScheduler first; falls back to queueMicrotask.
    *
    * Amp ref: c9.requestFrame() — coalesced, only one pending frame at a time
    */
   scheduleFrame(): void {
     if (this._frameScheduled) return;
     this._frameScheduled = true;
-    // In full implementation (Phase 5), this uses FrameScheduler
-    // For now, process via microtask
+
+    // Try to use FrameScheduler if available
+    if (this._useFrameScheduler()) return;
+
+    // Fallback: use queueMicrotask
     queueMicrotask(() => this.drawFrame());
   }
 
   /**
-   * Execute one frame: build -> layout -> paint.
+   * Execute one full frame: beginFrame -> build -> layout -> paint -> render.
    *
    * Amp ref: c9.executeFrame() — iterates ["build", "layout", "paint", "render"]
-   * Simplified for Phase 3.
    */
   drawFrame(): void {
     this._frameScheduled = false;
+
+    // BEGIN FRAME
+    this.beginFrame();
+
+    // PROCESS RESIZE
+    this.processResizeIfPending();
+
     // BUILD phase
     this.buildOwner.buildScopes();
+    this.updateRootRenderObject();
+
     // LAYOUT phase
+    this.pipelineOwner.updateRootConstraints(this._renderViewSize);
     this.pipelineOwner.flushLayout();
-    // PAINT phase (stub — Phase 5 implements actual paint)
-    this.pipelineOwner.flushPaint();
+
+    // PAINT phase
+    this.paint();
+
+    // RENDER phase
+    this.render();
   }
 
   /**
    * Synchronous version for testing.
-   * Runs build -> layout -> paint immediately without microtask.
+   * Runs build -> layout -> paint -> render immediately without microtask.
+   * Also runs beginFrame + processResizeIfPending for full pipeline.
    */
   drawFrameSync(): void {
     this._frameScheduled = false;
+
+    // BEGIN FRAME
+    this.beginFrame();
+
+    // PROCESS RESIZE
+    this.processResizeIfPending();
+
+    // BUILD phase
     this.buildOwner.buildScopes();
+    this.updateRootRenderObject();
+
+    // LAYOUT phase
     this.pipelineOwner.flushLayout();
-    this.pipelineOwner.flushPaint();
+
+    // PAINT phase
+    this.paint();
+
+    // RENDER phase
+    this.render();
   }
 
   /**
@@ -291,6 +560,63 @@ export class WidgetsBinding {
     }
     this.buildOwner.dispose();
     this.pipelineOwner.dispose();
+  }
+
+  // --- Private helpers ---
+
+  /**
+   * Try to register frame callbacks with FrameScheduler.
+   * Graceful degradation: if FrameScheduler is not available (05-01 not done),
+   * falls through to queueMicrotask fallback.
+   */
+  private _tryRegisterFrameCallbacks(): void {
+    // FrameScheduler (Plan 05-01) may not be available yet.
+    // When it is, this method will register the 6 phase callbacks:
+    //   BUILD phase, priority -2000: "frame-start" -> beginFrame()
+    //   BUILD phase, priority -1000: "resize" -> processResizeIfPending()
+    //   BUILD phase, priority 0: "build" -> buildOwner.buildScopes() + updateRootRenderObject()
+    //   LAYOUT phase, priority 0: "layout" -> updateRootConstraints() + pipelineOwner.flushLayout()
+    //   PAINT phase, priority 0: "paint" -> paint()
+    //   RENDER phase, priority 0: "render" -> render()
+    try {
+      // Attempt dynamic import of FrameScheduler
+      const mod = require('../scheduler/frame-scheduler');
+      if (mod && mod.FrameScheduler) {
+        const scheduler = mod.FrameScheduler.instance;
+        // Register callbacks using addFrameCallback(id, callback, phase, priority, name)
+        scheduler.addFrameCallback('frame-start', () => this.beginFrame(), 'build', -2000, 'frame-start');
+        scheduler.addFrameCallback('resize', () => this.processResizeIfPending(), 'build', -1000, 'resize');
+        scheduler.addFrameCallback('build', () => {
+          this.buildOwner.buildScopes();
+          this.updateRootRenderObject();
+        }, 'build', 0, 'build');
+        scheduler.addFrameCallback('layout', () => {
+          this.pipelineOwner.updateRootConstraints(this._renderViewSize);
+          this.pipelineOwner.flushLayout();
+        }, 'layout', 0, 'layout');
+        scheduler.addFrameCallback('paint-phase', () => this.paint(), 'paint', 0, 'paint');
+        scheduler.addFrameCallback('render-phase', () => this.render(), 'render', 0, 'render');
+      }
+    } catch (_e) {
+      // FrameScheduler not available yet — will use queueMicrotask fallback
+    }
+  }
+
+  /**
+   * Try to use FrameScheduler for frame scheduling.
+   * Returns true if successful, false if FrameScheduler is not available.
+   */
+  private _useFrameScheduler(): boolean {
+    try {
+      const mod = require('../scheduler/frame-scheduler');
+      if (mod && mod.FrameScheduler) {
+        mod.FrameScheduler.instance.requestFrame();
+        return true;
+      }
+    } catch (_e) {
+      // Not available
+    }
+    return false;
   }
 }
 
