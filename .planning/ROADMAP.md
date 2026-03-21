@@ -2,7 +2,9 @@
 
 ## Overview
 
-Build a complete Flutter-for-Terminal framework in TypeScript/Bun, progressing from core type primitives through terminal abstraction, three-tree widget framework, layout engine, frame scheduling, input handling, high-level widgets, and finally diagnostics with example applications. Each phase builds on the previous, with parallel development opportunities within phases.
+Build a complete Flutter-for-Terminal framework in TypeScript/Bun, progressing from core type primitives through terminal abstraction, three-tree widget framework, layout engine, frame scheduling, input handling, high-level widgets, and finally diagnostics with example applications. Each phase builds on the previous, with parallel development opportunities across phases.
+
+**Last review:** 2026-03-21 — 4-agent parallel verification. Fixed dependencies, split plans, added integration plans. Plan count: 21 → 25.
 
 ## Milestones
 
@@ -14,63 +16,85 @@ Build a complete Flutter-for-Terminal framework in TypeScript/Bun, progressing f
 - [ ] **Phase 2: Terminal Layer** — Cell buffer, double-buffering, diff algorithm, ANSI renderer, raw mode I/O
 - [ ] **Phase 3: Widget Framework** — Three-tree core: Widget/Element/RenderObject lifecycle, BuildOwner, PipelineOwner, runApp
 - [ ] **Phase 4: Layout System** — Flex algorithm, padding, constrained box, decorated box, parent data
-- [ ] **Phase 5: Frame & Paint** — 60fps scheduler, 4-phase pipeline, PaintContext, clip support, paint traversal
-- [ ] **Phase 6: Input System** — Keyboard/mouse events, input parser state machine, focus management, shortcuts
+- [ ] **Phase 5: Frame & Paint** — On-demand scheduler, 4-phase pipeline, PaintContext, ScreenBuffer integration
+- [ ] **Phase 6: Input System** — Keyboard/mouse events, input parser state machine, focus management, event dispatch
 - [ ] **Phase 7: High-Level Widgets** — Text, Container, Flex, ScrollView, ListView, TextField, Button, Table
 - [ ] **Phase 8: Diagnostics & Examples** — Performance overlay, frame stats, debug flags, 8 example applications
+
+## Dependency DAG
+
+```
+Phase 1 (Core Primitives)
+  ├──→ Phase 2 (Terminal Layer)
+  │      ├──→ Phase 5 (Frame & Paint) ←── Phase 3, Phase 4
+  │      └──→ Phase 6 (Input System) ←── Phase 3 (for 06-02, 06-03)
+  └──→ Phase 3 (Widget Framework)
+         └──→ Phase 4 (Layout System)
+
+Phase 5 + Phase 6 ──→ Phase 7 (High-Level Widgets)
+                        └──→ Phase 8 (Diagnostics & Examples)
+```
 
 ## Phase Details
 
 ### Phase 1: Core Primitives
 **Goal**: Establish all foundational types that every other module depends on
 **Depends on**: Nothing (first phase)
-**Requirements**: CORE-01, CORE-02, CORE-03, CORE-04, CORE-05, CORE-06
+**Requirements**: CORE-01, CORE-02, CORE-03, CORE-04, CORE-05, CORE-06 (ValueKey/UniqueKey only)
 **Success Criteria** (what must be TRUE):
   1. All core types (Offset, Size, Rect, Color, TextStyle, TextSpan, BoxConstraints, Key) are implemented with full test coverage
   2. Color round-trip conversion (RGB ↔ Ansi256 ↔ SGR) works correctly
-  3. TextSpan tree correctly computes CJK-aware character widths
+  3. TextSpan tree correctly computes CJK-aware character widths using vendored wcwidth table
   4. BoxConstraints algebra (tight, loose, constrain, enforce) passes property-based tests
+  5. ValueKey equality and UniqueKey uniqueness verified
 **Plans**: 3 plans
 
 Plans:
 - [ ] 01-01: Types + Color — Offset, Size, Rect, Color class with SGR
-- [ ] 01-02: TextStyle + TextSpan — Style merging, span tree, CJK width
-- [ ] 01-03: BoxConstraints + Key — Constraint algebra, ValueKey, UniqueKey, GlobalKey
+- [ ] 01-02: TextStyle + TextSpan — Style merging, span tree, CJK width (vendored wcwidth)
+- [ ] 01-03: BoxConstraints + Key — Constraint algebra, ValueKey, UniqueKey
 
 ### Phase 2: Terminal Layer
 **Goal**: Abstract terminal I/O with double-buffered rendering and minimal-diff output
 **Depends on**: Phase 1
-**Requirements**: TERM-01, TERM-02, TERM-03, TERM-04, TERM-05, TERM-06, TERM-07
+**Requirements**: TERM-01, TERM-02, TERM-03, TERM-04, TERM-05, TERM-07
 **Success Criteria** (what must be TRUE):
-  1. ScreenBuffer correctly manages front/back cell grids with swap operation
-  2. Diff algorithm produces minimal change set (empty→full, identical, single-cell, contiguous merge)
-  3. Renderer outputs valid ANSI/SGR sequences with BSU/ESU wrapping
+  1. ScreenBuffer correctly manages front/back cell grids with swap operation and dirty-region tracking
+  2. Diff algorithm produces minimal change set (empty→full, identical, single-cell, contiguous merge); dirty-region-scoped comparison
+  3. Renderer outputs valid ANSI/SGR sequences with BSU/ESU wrapping and cursor hide/show
   4. Raw mode toggle and alt screen work on Linux terminals
   5. SIGWINCH triggers buffer resize
+  6. Capability detection returns safe defaults on timeout
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: Cell + ScreenBuffer — Cell struct, double-buffered grid, resize
-- [ ] 02-02: Diff + Renderer — Cell-level diff algorithm, ANSI string builder, BSU/ESU
-- [ ] 02-03: Terminal I/O + Capabilities — Raw mode, alt screen, SIGWINCH, DA1/DA2 detection
+- [ ] 02-01: Cell + ScreenBuffer — Cell struct, double-buffered grid, resize, dirty-region tracking
+- [ ] 02-02: Diff + Renderer — Cell-level diff algorithm, ANSI string builder, BSU/ESU, cursor management
+- [ ] 02-03: Terminal I/O + Capabilities — Raw mode, alt screen, SIGWINCH, DA1/DA2 detection with timeout fallback
 
 ### Phase 3: Widget Framework (Three-Tree Core)
 **Goal**: Implement Flutter's complete three-tree architecture with full lifecycle management
 **Depends on**: Phase 1
-**Requirements**: FRMW-01, FRMW-02, FRMW-03, FRMW-04, FRMW-05, FRMW-06, FRMW-07, FRMW-08, FRMW-09
+**Requirements**: FRMW-01 through FRMW-11, CORE-06 (GlobalKey full), CORE-07
 **Success Criteria** (what must be TRUE):
-  1. StatelessWidget build() is called on mount and rebuild
-  2. StatefulWidget lifecycle (initState → build → didUpdateWidget → dispose) executes in correct order
-  3. Element.updateChild correctly reuses, updates, or replaces child elements with key matching
-  4. InheritedWidget notifies dependent elements when data changes
-  5. BuildOwner processes dirty elements in depth-first order
-  6. runApp() creates the three trees and triggers first frame
-**Plans**: 3 plans
+  1. Widget.canUpdate() correctly matches runtimeType + key
+  2. StatefulWidget lifecycle (initState → didChangeDependencies → build → didUpdateWidget → deactivate → dispose) executes in correct order
+  3. Element.updateChild() handles all 4 cases correctly (null/non-null matrix)
+  4. Element.updateChildren() O(N) key-matching passes with append, remove, reorder
+  5. InheritedWidget triggers didChangeDependencies() on dependent State objects
+  6. BuildOwner processes dirty elements in depth-first order
+  7. RenderObject.layout() vs performLayout() distinction works — sizedByParent objects use performResize()
+  8. RelayoutBoundary stops markNeedsLayout() propagation at tight constraints
+  9. SingleChildRenderObjectWidget/MultiChildRenderObjectWidget correctly bridge Widget↔RenderObject
+  10. ErrorWidget displays on build() failure without crashing the tree
+  11. runApp() creates the three trees and triggers first frame
+**Plans**: 4 plans (was 3, split 03-02)
 
 Plans:
-- [ ] 03-01: Widget + State — Widget base, StatelessWidget, StatefulWidget, State<T> lifecycle
-- [ ] 03-02: Element + RenderObject — Element tree, updateChild/updateChildren, RenderObject/RenderBox
-- [ ] 03-03: BuildOwner + PipelineOwner + Binding — Dirty management, layout/paint scheduling, runApp
+- [ ] 03-01: Widget + State + Listenable — Widget base with canUpdate(), StatelessWidget, StatefulWidget, State<T> full lifecycle, Listenable/ChangeNotifier/ValueNotifier (CORE-07)
+- [ ] 03-02a: Element Tree — Element base, ComponentElement, RenderObjectElement, updateChild() 4-case, updateChildren() O(N) key-matching, InheritedElement
+- [ ] 03-02b: RenderObject + RenderBox — RenderObject base, layout()/performLayout()/performResize() split, sizedByParent, RelayoutBoundary, RepaintBoundary, markNeedsLayout/markNeedsPaint, RenderObjectWidget/SingleChildRenderObjectWidget/MultiChildRenderObjectWidget
+- [ ] 03-03: BuildOwner + PipelineOwner + Binding — Dirty element management, depth-sorted rebuild, layout/paint pass scheduling, GlobalKey registry (currentState/currentContext), ErrorWidget, WidgetsBinding + runApp()
 
 ### Phase 4: Layout System
 **Goal**: Implement Flutter's box-constraint layout model with flex, padding, and decoration
@@ -82,6 +106,7 @@ Plans:
   3. Flex ratio allocation distributes space proportionally
   4. Nested constraints (Padding inside SizedBox inside Flex) resolve correctly
   5. DecoratedBox renders Unicode box-drawing borders
+  6. RelayoutBoundary optimization works with flex layout (tight cross-axis constraints)
 **Plans**: 2 plans
 
 Plans:
@@ -89,54 +114,62 @@ Plans:
 - [ ] 04-02: Padding + Constrained + Decorated — RenderPadding, RenderConstrainedBox, RenderDecoratedBox
 
 ### Phase 5: Frame Scheduler + Paint Pipeline
-**Goal**: Implement 60fps frame scheduling with ordered phase execution and paint context
-**Depends on**: Phase 3, Phase 4
-**Requirements**: FPNT-01, FPNT-02, FPNT-03, FPNT-04, FPNT-05
+**Goal**: Implement on-demand frame scheduling with ordered phase execution, paint context, and ScreenBuffer integration
+**Depends on**: Phase 2, Phase 3, Phase 4
+**Requirements**: FPNT-01, FPNT-02, FPNT-03, FPNT-04, FPNT-05, FPNT-06
 **Success Criteria** (what must be TRUE):
-  1. Frame scheduler ticks at ~16.67ms intervals
+  1. On-demand scheduler fires frame only when dirty (no timer ticking when idle)
   2. Frames are skipped when nothing is dirty (no unnecessary work)
   3. 4-phase pipeline (BUILD→LAYOUT→PAINT→RENDER) executes in correct order
-  4. PaintContext correctly writes styled characters to cells with offset accumulation
+  4. PaintContext correctly writes styled characters to ScreenBuffer back buffer with offset accumulation
   5. Clip rect prevents painting outside bounds
-**Plans**: 2 plans
+  6. RENDER phase triggers diff + ANSI renderer + buffer swap end-to-end
+  7. Frame budget instrumentation reports per-phase timing
+**Plans**: 3 plans (was 2, added integration plan)
 
 Plans:
-- [ ] 05-01: Frame Scheduler — 60fps tick, 4-phase pipeline, frame skipping logic
+- [ ] 05-01: Frame Scheduler — On-demand SchedulerMode, 4-phase pipeline, frame skipping, budget instrumentation
 - [ ] 05-02: PaintContext + Paint Traversal — drawChar/drawText/fillRect/drawBorder, clipRect, DFS paint
+- [ ] 05-03: ScreenBuffer Integration — Wire PaintContext to ScreenBuffer back buffer, RENDER phase (diff + renderer + swap), end-to-end test (widget → layout → paint → cells → ANSI)
 
 ### Phase 6: Input System
-**Goal**: Parse raw terminal input into structured events with focus management
-**Depends on**: Phase 2
-**Requirements**: INPT-01, INPT-02, INPT-03, INPT-04, INPT-05
+**Goal**: Parse raw terminal input into structured events with focus management and widget event dispatch
+**Depends on**: Phase 2 (for 06-01), Phase 3 (for 06-02, 06-03)
+**Requirements**: INPT-01, INPT-02, INPT-03, INPT-04, INPT-05, INPT-06
 **Success Criteria** (what must be TRUE):
   1. Correctly parses Ctrl+key, arrow keys, F-keys, and special keys from raw bytes
   2. SGR mouse protocol events (press, release, move, scroll) parse correctly
   3. Multi-byte escape sequences are handled by state machine without data loss
   4. FocusManager supports tab-order navigation between focusable widgets
   5. Shortcut bindings trigger correct actions
-**Plans**: 2 plans
+  6. InputEvent routes through FocusManager to correct widget callback with bubbling
+**Plans**: 3 plans (was 2, added event dispatch plan)
 
 Plans:
-- [ ] 06-01: Keyboard + Mouse + Parser — KeyEvent, MouseEvent, input state machine
-- [ ] 06-02: Focus + Shortcuts — FocusNode, FocusScope, FocusManager, shortcut bindings
+- [ ] 06-01: Keyboard + Mouse + Parser — InputEvent discriminated union, KeyEvent, MouseEvent, input state machine (depends: Phase 2)
+- [ ] 06-02: Focus + Shortcuts — FocusNode, FocusScope, FocusManager, Shortcuts widget, shortcut bindings (depends: Phase 3)
+- [ ] 06-03: Event Dispatch Pipeline — Wire input parser through FocusManager to widget callbacks, event bubbling/capture (depends: Phase 3)
 
 ### Phase 7: High-Level Widgets
 **Goal**: Build the standard widget library that application developers use directly
 **Depends on**: Phase 4, Phase 5, Phase 6
-**Requirements**: WDGT-01 through WDGT-10
+**Requirements**: WDGT-01 through WDGT-11, TERM-06
 **Success Criteria** (what must be TRUE):
   1. Text widget renders styled text at correct position in ScreenBuffer
-  2. Container applies padding, decoration, and constraints to child
-  3. Row/Column distribute space according to flex factors and alignment
-  4. ScrollView clips content and responds to scroll input
-  5. TextField accepts keyboard input with cursor movement
-  6. Table renders with correct column alignment
-**Plans**: 3 plans
+  2. DefaultTextStyle cascades styling to descendant Text widgets
+  3. Container applies padding, decoration, and constraints to child
+  4. Row/Column distribute space according to flex factors and alignment
+  5. ScrollView clips content and responds to scroll input
+  6. TextField accepts keyboard input with cursor movement
+  7. Table renders with correct column alignment
+  8. ANSI parser converts escape sequences to TextSpan for paste/display
+**Plans**: 4 plans (was 3, split 07-01)
 
 Plans:
-- [ ] 07-01: Text + Container + Flex widgets — Text, Container, Row, Column, Expanded, SizedBox, Padding, Center
-- [ ] 07-02: Scroll + Stack + Builder — SingleChildScrollView, ListView, Stack, Builder, LayoutBuilder
-- [ ] 07-03: Interactive widgets — TextField, Button, Table, Divider, Spacer, Flexible
+- [ ] 07-01a: Leaf + Single-child Widgets — Text, DefaultTextStyle, Container, SizedBox, Padding, Center
+- [ ] 07-01b: Flex Widgets — Row, Column, Expanded, Flexible, Spacer
+- [ ] 07-02: Scroll + Stack + Builder — SingleChildScrollView, ListView, Stack, Builder, LayoutBuilder, ANSI parser (TERM-06)
+- [ ] 07-03: Interactive Widgets — TextField (with TextEditingController), Button, Table, Divider
 
 ### Phase 8: Diagnostics & Examples
 **Goal**: Add developer tooling and demonstrate the framework with 8 example applications
@@ -144,11 +177,11 @@ Plans:
 **Requirements**: DIAG-01, DIAG-02, DIAG-03, EXMP-01 through EXMP-08
 **Success Criteria** (what must be TRUE):
   1. PerformanceOverlay displays real-time P95/P99 frame metrics
-  2. FrameStats collects rolling 1024-sample window of frame times
+  2. FrameStats collects rolling 1024-sample window with per-phase timing
   3. hello-world example renders centered colored text
   4. counter example responds to keyboard increment/decrement
   5. todo-app example supports full CRUD operations
-  6. perf-stress example maintains 60fps with 1000 widgets
+  6. perf-stress example maintains 60fps with 1000 widgets (validates RelayoutBoundary + RepaintBoundary)
 **Plans**: 3 plans
 
 Plans:
@@ -156,19 +189,43 @@ Plans:
 - [ ] 08-02: Basic examples — hello-world, counter, flex-layout, scroll-demo
 - [ ] 08-03: Advanced examples — table-demo, input-form, todo-app, perf-stress
 
-## Progress
+## Parallel Wave Strategy
 
-**Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
-(Phases 2, 3, and 6 have parallel opportunities — see parallel development strategy)
+Optimized wave structure based on dependency DAG. Wall-clock critical path = 6 waves.
+
+| Wave | Phase(s) | Plans | Notes |
+|------|----------|-------|-------|
+| W1 | Phase 1 | 01-01, 01-02, 01-03 | Foundation. All 3 plans can run in parallel. |
+| W2 | Phase 2 + Phase 3 | 02-01/02/03 + 03-01/02a/02b/03 | Phase 2 and Phase 3 both depend only on Phase 1. Run in parallel. **Phase 3 is critical path — prioritize.** |
+| W3 | Phase 4 + Phase 6-01 | 04-01/02 + 06-01 | Phase 4 depends Phase 3. 06-01 (parser) depends Phase 2 only. |
+| W4 | Phase 5 + Phase 6-02/03 | 05-01/02/03 + 06-02/03 | Phase 5 depends 2+3+4. 06-02/03 depend Phase 3. |
+| W5 | Phase 7 | 07-01a/01b/02/03 | Depends 4+5+6. 07-01a and 07-01b can run in parallel. |
+| W6 | Phase 8 | 08-01/02/03 | Depends Phase 7. 08-01 can run parallel with 08-02/03. |
+
+## Progress
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Primitives | 0/3 | Not started | - |
 | 2. Terminal Layer | 0/3 | Not started | - |
-| 3. Widget Framework | 0/3 | Not started | - |
+| 3. Widget Framework | 0/4 | Not started | - |
 | 4. Layout System | 0/2 | Not started | - |
-| 5. Frame & Paint | 0/2 | Not started | - |
-| 6. Input System | 0/2 | Not started | - |
-| 7. High-Level Widgets | 0/3 | Not started | - |
+| 5. Frame & Paint | 0/3 | Not started | - |
+| 6. Input System | 0/3 | Not started | - |
+| 7. High-Level Widgets | 0/4 | Not started | - |
 | 8. Diagnostics & Examples | 0/3 | Not started | - |
+
+**Total plans: 25** (was 21; +4 from splits and integration plans)
+
+---
+
+**Changes from review (2026-03-21):**
+- [FIX] Phase 5 now depends on Phase 2 (ScreenBuffer needed for RENDER phase)
+- [FIX] Phase 6 now depends on Phase 3 for plans 06-02 and 06-03 (Focus/Shortcuts need Element tree)
+- [SPLIT] Plan 03-02 → 03-02a (Element Tree) + 03-02b (RenderObject)
+- [SPLIT] Plan 07-01 → 07-01a (leaf/single-child) + 07-01b (flex widgets)
+- [MISSING] Added Plan 05-03 (ScreenBuffer Integration) for PaintContext↔ScreenBuffer bridge
+- [MISSING] Added Plan 06-03 (Event Dispatch Pipeline) for Input↔Widget event routing
+- [REORDER] Explicit wave strategy replacing ambiguous serial execution order
+- [MOVED] TERM-06 moved from Phase 2 to Phase 7 (ANSI parser has no Phase 2 consumer)
+- Phase 3 expanded with new requirements (canUpdate, didChangeDependencies, RelayoutBoundary, etc.)
