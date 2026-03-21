@@ -1,0 +1,131 @@
+// Cell type and helpers for the double-buffered terminal screen.
+// Amp ref: amp-strings.txt:529716 — q3 createCell, yu EMPTY_CELL, bF8 cellsEqual, sF8 stylesEqual
+
+import { Color } from '../core/color.js';
+
+/**
+ * Visual style attributes for a single terminal cell.
+ * Amp ref: style properties on cell objects (fg, bg, bold, italic, etc.)
+ */
+export interface CellStyle {
+  fg?: Color;
+  bg?: Color;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
+  dim?: boolean;
+  inverse?: boolean;
+}
+
+/**
+ * A single cell in the terminal grid.
+ * Amp ref: q3 createCell — { char, style, width, hyperlink }
+ */
+export interface Cell {
+  char: string;       // single grapheme (default ' ')
+  style: CellStyle;   // fg, bg, bold, italic, etc.
+  width: number;      // display width (1 or 2 for CJK)
+  hyperlink?: string; // OSC 8 hyperlink URL
+}
+
+/**
+ * Frozen sentinel representing an empty/blank cell.
+ * Identity comparison (===) is used as a fast-path optimization in getDiff().
+ * Amp ref: yu = q3(' ', {})
+ */
+export const EMPTY_CELL: Readonly<Cell> = Object.freeze({
+  char: ' ',
+  style: Object.freeze({}) as CellStyle,
+  width: 1,
+});
+
+/**
+ * Factory function to create a new Cell.
+ * Amp ref: q3(char, style, width, hyperlink)
+ */
+export function createCell(
+  char: string = ' ',
+  style: CellStyle = {},
+  width: number = 1,
+  hyperlink?: string,
+): Cell {
+  return {
+    char,
+    style: { ...style },
+    width,
+    hyperlink,
+  };
+}
+
+/**
+ * Deep equality check for two Color values.
+ * Both undefined => equal. One undefined => not equal.
+ * Amp ref: Nu0 colorsEqual
+ */
+function colorsEqual(a: Color | undefined, b: Color | undefined): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return false;
+  return a.equals(b);
+}
+
+/**
+ * Deep equality check for two CellStyle objects.
+ * Amp ref: sF8 stylesEqual
+ */
+export function stylesEqual(a: CellStyle, b: CellStyle): boolean {
+  return (
+    colorsEqual(a.fg, b.fg) &&
+    colorsEqual(a.bg, b.bg) &&
+    a.bold === b.bold &&
+    a.italic === b.italic &&
+    a.underline === b.underline &&
+    a.strikethrough === b.strikethrough &&
+    a.dim === b.dim &&
+    a.inverse === b.inverse
+  );
+}
+
+/**
+ * Deep equality check for two Cell objects.
+ * Amp ref: bF8 cellsEqual — compares char, width, style, hyperlink
+ */
+export function cellsEqual(a: Cell, b: Cell): boolean {
+  if (a === b) return true;
+  return (
+    a.char === b.char &&
+    a.width === b.width &&
+    stylesEqual(a.style, b.style) &&
+    a.hyperlink === b.hyperlink
+  );
+}
+
+/**
+ * Creates a deep clone of a Cell.
+ */
+export function cloneCell(cell: Cell): Cell {
+  return {
+    char: cell.char,
+    style: { ...cell.style },
+    width: cell.width,
+    hyperlink: cell.hyperlink,
+  };
+}
+
+/**
+ * A contiguous run of changed cells within a single row.
+ * Produced by the diff algorithm to describe a horizontal span of changes.
+ */
+export interface CellPatch {
+  col: number;     // starting column
+  cells: Cell[];   // contiguous changed cells
+}
+
+/**
+ * All cell patches for a single row.
+ * Groups CellPatch entries by row for efficient rendering.
+ */
+export interface RowPatch {
+  row: number;       // the row index
+  patches: CellPatch[];  // contiguous runs of changed cells in this row
+}
