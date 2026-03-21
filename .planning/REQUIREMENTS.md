@@ -21,8 +21,8 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Terminal Layer (TERM)
 
 - [ ] **TERM-01**: Cell struct (char + style attrs + wide-char marker)
-- [ ] **TERM-02**: Double-buffered ScreenBuffer (front/back grids, swap, resize, dirty-region tracking)
-- [ ] **TERM-03**: Cell-level diff algorithm producing RowPatch[] with minimal change set; dirty-region-scoped comparison
+- [ ] **TERM-02**: Double-buffered ScreenBuffer (front/back grids, swap, resize); no dirty-region tracking (Amp does full-grid scan every frame)
+- [ ] **TERM-03**: Cell-level diff algorithm producing RowPatch[] with minimal change set; full-buffer comparison (no dirty-region scoping — Amp only optimizes via EMPTY_CELL identity check)
 - [ ] **TERM-04**: ANSI renderer with SGR string building, BSU/ESU synchronized output, and cursor hide/show during render
 - [ ] **TERM-05**: Terminal I/O (raw mode toggle, alt screen, SIGWINCH resize handling)
 - [ ] **TERM-06**: ANSI escape sequence parser → TextSpan conversion
@@ -32,13 +32,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **FRMW-01**: Widget base class with key, createElement(), and static canUpdate(oldWidget, newWidget) — matches runtimeType + key
 - [ ] **FRMW-02**: StatelessWidget with build() lifecycle
-- [ ] **FRMW-03**: StatefulWidget + State<T> with full lifecycle: initState → didChangeDependencies → build → didUpdateWidget → deactivate → dispose; setState triggers rebuild
+- [ ] **FRMW-03**: StatefulWidget + State<T> with lifecycle: initState → build → didUpdateWidget → dispose; setState triggers rebuild (Amp has no didChangeDependencies or deactivate — elements go directly mounted→unmounted)
 - [ ] **FRMW-04a**: Element.updateChild() with explicit 4-case logic: (null,null)→null, (null,widget)→inflate, (child,null)→deactivate, (child,widget)→canUpdate?update:replace
 - [ ] **FRMW-04b**: Element.updateChildren() with O(N) key-matching algorithm (top-scan, bottom-scan, key-map) for list reconciliation
-- [ ] **FRMW-05**: InheritedWidget with dependency tracking and selective rebuild via didChangeDependencies()
-- [ ] **FRMW-06**: RenderObject/RenderBox with layout(constraints, parentUsesSize) vs performLayout() distinction; sizedByParent + performResize() protocol; markNeedsLayout/markNeedsPaint propagation
+- [ ] **FRMW-05**: InheritedWidget with dependency tracking and selective rebuild via dependOnInheritedWidgetOfExactType (no didChangeDependencies callback — dependents are directly marked dirty)
+- [ ] **FRMW-06**: RenderObject/RenderBox with layout(constraints) vs performLayout() distinction; markNeedsLayout propagates to root (Amp has no RelayoutBoundary, no sizedByParent/performResize, no parentUsesSize — layout always driven from root via PipelineOwner); markNeedsPaint propagation; offset stored directly on RenderBox (not BoxParentData)
 - [ ] **FRMW-07**: BuildOwner managing dirty element list with depth-sorted rebuild
-- [ ] **FRMW-08**: PipelineOwner scheduling layout and paint passes; RelayoutBoundary optimization (stops markNeedsLayout propagation at tight constraints / sizedByParent); RepaintBoundary for scoped repaint
+- [ ] **FRMW-08**: PipelineOwner scheduling layout and paint passes; layout pass starts from root only (Amp has no _nodesNeedingLayout list — PipelineOwner.flushLayout() calls layout on root); no RepaintBoundary (full repaint each frame)
 - [ ] **FRMW-09**: WidgetsBinding singleton with runApp() entry point — schedules first frame, attaches root element, initializes BuildOwner + PipelineOwner
 - [ ] **FRMW-10**: RenderObjectWidget / SingleChildRenderObjectWidget / MultiChildRenderObjectWidget — createRenderObject() + updateRenderObject() bridge between Widget and RenderObject trees
 - [ ] **FRMW-11**: ErrorWidget — displays error boundary on build() failure, preventing full tree crash
@@ -229,8 +229,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 **Changes from review (2026-03-21):**
 - Added: CORE-07 (Listenable/ChangeNotifier), FRMW-04a/04b (split updateChild/updateChildren), FRMW-10 (RenderObjectWidget bridge), FRMW-11 (ErrorWidget), FPNT-06 (ScreenBuffer integration), INPT-06 (event dispatch pipeline), WDGT-11 (DefaultTextStyle)
 - Split: FRMW-04→04a/04b, WDGT-04→04a/04b, WDGT-06→06a/06b, WDGT-10→10a/10b
-- Revised: FRMW-01 (added canUpdate), FRMW-03 (added didChangeDependencies/deactivate), FRMW-06 (added performLayout/sizedByParent/markNeeds*), FRMW-08 (added RelayoutBoundary/RepaintBoundary), FPNT-01 (on-demand default), CORE-06 (split GlobalKey to Phase 3), TERM-06 (moved to Phase 7)
+- Revised: FRMW-01 (added canUpdate), FRMW-06 (added performLayout/sizedByParent/markNeeds*), FRMW-08 (added RelayoutBoundary/RepaintBoundary), FPNT-01 (on-demand default), CORE-06 (split GlobalKey to Phase 3), TERM-06 (moved to Phase 7)
 - Moved: TERM-06 from Phase 2 to Phase 7 (no Phase 2 consumer)
+
+**Amp fidelity reconciliation (2026-03-21):**
+- Revised: FRMW-03 — removed didChangeDependencies and deactivate (not in Amp; elements go mounted→unmounted directly)
+- Revised: FRMW-05 — removed didChangeDependencies callback; dependents marked dirty directly
+- Revised: FRMW-06 — removed parentUsesSize, sizedByParent, performResize(); layout() takes only constraints; offset stored on RenderBox directly; markNeedsLayout propagates to root
+- Revised: FRMW-08 — removed RelayoutBoundary and RepaintBoundary (Amp has neither); PipelineOwner layouts from root only
+- Revised: TERM-02 — removed dirty-region tracking (Amp does full-grid scan)
+- Revised: TERM-03 — removed dirty-region-scoped comparison (full buffer comparison only)
 
 ---
 *Requirements defined: 2026-03-21*

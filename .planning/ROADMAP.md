@@ -59,8 +59,8 @@ Plans:
 **Depends on**: Phase 1
 **Requirements**: TERM-01, TERM-02, TERM-03, TERM-04, TERM-05, TERM-07
 **Success Criteria** (what must be TRUE):
-  1. ScreenBuffer correctly manages front/back cell grids with swap operation and dirty-region tracking
-  2. Diff algorithm produces minimal change set (empty→full, identical, single-cell, contiguous merge); dirty-region-scoped comparison
+  1. ScreenBuffer correctly manages front/back cell grids with swap operation (no dirty-region tracking — Amp does full-grid scan)
+  2. Diff algorithm produces minimal change set (empty→full, identical, single-cell, contiguous merge); full-buffer comparison
   3. Renderer outputs valid ANSI/SGR sequences with BSU/ESU wrapping and cursor hide/show
   4. Raw mode toggle and alt screen work on Linux terminals
   5. SIGWINCH triggers buffer resize
@@ -68,7 +68,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: Cell + ScreenBuffer — Cell struct, double-buffered grid, resize, dirty-region tracking
+- [ ] 02-01: Cell + ScreenBuffer — Cell struct, double-buffered grid, resize
 - [ ] 02-02: Diff + Renderer — Cell-level diff algorithm, ANSI string builder, BSU/ESU, cursor management
 - [ ] 02-03: Terminal I/O + Capabilities — Raw mode, alt screen, SIGWINCH, DA1/DA2 detection with timeout fallback
 
@@ -78,23 +78,23 @@ Plans:
 **Requirements**: FRMW-01 through FRMW-11, CORE-06 (GlobalKey full), CORE-07
 **Success Criteria** (what must be TRUE):
   1. Widget.canUpdate() correctly matches runtimeType + key
-  2. StatefulWidget lifecycle (initState → didChangeDependencies → build → didUpdateWidget → deactivate → dispose) executes in correct order
+  2. StatefulWidget lifecycle (initState → build → didUpdateWidget → dispose) executes in correct order (Amp has no didChangeDependencies or deactivate)
   3. Element.updateChild() handles all 4 cases correctly (null/non-null matrix)
   4. Element.updateChildren() O(N) key-matching passes with append, remove, reorder
-  5. InheritedWidget triggers didChangeDependencies() on dependent State objects
+  5. InheritedWidget marks dependent elements as dirty when value changes (no didChangeDependencies callback)
   6. BuildOwner processes dirty elements in depth-first order
-  7. RenderObject.layout() vs performLayout() distinction works — sizedByParent objects use performResize()
-  8. RelayoutBoundary stops markNeedsLayout() propagation at tight constraints
+  7. RenderObject.layout(constraints) vs performLayout() distinction works; offset stored directly on RenderBox (no sizedByParent/performResize — Amp doesn't have it)
+  8. markNeedsLayout() propagates to root (Amp has no RelayoutBoundary; PipelineOwner layouts from root only)
   9. SingleChildRenderObjectWidget/MultiChildRenderObjectWidget correctly bridge Widget↔RenderObject
   10. ErrorWidget displays on build() failure without crashing the tree
   11. runApp() creates the three trees and triggers first frame
 **Plans**: 4 plans (was 3, split 03-02)
 
 Plans:
-- [ ] 03-01: Widget + State + Listenable — Widget base with canUpdate(), StatelessWidget, StatefulWidget, State<T> full lifecycle, Listenable/ChangeNotifier/ValueNotifier (CORE-07)
+- [ ] 03-01: Widget + State + Listenable — Widget base with canUpdate(), StatelessWidget, StatefulWidget, State<T> lifecycle (initState/build/didUpdateWidget/dispose), Listenable/ChangeNotifier/ValueNotifier (CORE-07)
 - [ ] 03-02a: Element Tree — Element base, ComponentElement, RenderObjectElement, updateChild() 4-case, updateChildren() O(N) key-matching, InheritedElement
-- [ ] 03-02b: RenderObject + RenderBox — RenderObject base, layout()/performLayout()/performResize() split, sizedByParent, RelayoutBoundary, RepaintBoundary, markNeedsLayout/markNeedsPaint, RenderObjectWidget/SingleChildRenderObjectWidget/MultiChildRenderObjectWidget
-- [ ] 03-03: BuildOwner + PipelineOwner + Binding — Dirty element management, depth-sorted rebuild, layout/paint pass scheduling, GlobalKey registry (currentState/currentContext), ErrorWidget, WidgetsBinding + runApp()
+- [ ] 03-02b: RenderObject + RenderBox — RenderObject base, layout(constraints)/performLayout() split (no sizedByParent/performResize/parentUsesSize), offset on RenderBox, markNeedsLayout propagates to root (no RelayoutBoundary/RepaintBoundary), RenderObjectWidget/SingleChildRenderObjectWidget/MultiChildRenderObjectWidget
+- [ ] 03-03: BuildOwner + PipelineOwner + Binding — Dirty element Set with depth-sorted rebuild, layout from root only, paint pass, GlobalKey registry (currentState/currentContext), ErrorWidget, WidgetsBinding + runApp()
 
 ### Phase 4: Layout System
 **Goal**: Implement Flutter's box-constraint layout model with flex, padding, and decoration
@@ -106,7 +106,7 @@ Plans:
   3. Flex ratio allocation distributes space proportionally
   4. Nested constraints (Padding inside SizedBox inside Flex) resolve correctly
   5. DecoratedBox renders Unicode box-drawing borders
-  6. RelayoutBoundary optimization works with flex layout (tight cross-axis constraints)
+  6. Layout correctly propagates from root through nested flex containers
 **Plans**: 2 plans
 
 Plans:
@@ -181,7 +181,7 @@ Plans:
   3. hello-world example renders centered colored text
   4. counter example responds to keyboard increment/decrement
   5. todo-app example supports full CRUD operations
-  6. perf-stress example maintains 60fps with 1000 widgets (validates RelayoutBoundary + RepaintBoundary)
+  6. perf-stress example maintains 60fps with 1000 widgets (validated by on-demand scheduling + root-driven layout)
 **Plans**: 3 plans
 
 Plans:
@@ -228,4 +228,10 @@ Optimized wave structure based on dependency DAG. Wall-clock critical path = 6 w
 - [MISSING] Added Plan 06-03 (Event Dispatch Pipeline) for Input↔Widget event routing
 - [REORDER] Explicit wave strategy replacing ambiguous serial execution order
 - [MOVED] TERM-06 moved from Phase 2 to Phase 7 (ANSI parser has no Phase 2 consumer)
-- Phase 3 expanded with new requirements (canUpdate, didChangeDependencies, RelayoutBoundary, etc.)
+- Phase 3 revised to match Amp's simplified architecture (no RelayoutBoundary, no sizedByParent, no didChangeDependencies)
+
+**Amp fidelity reconciliation (2026-03-21):**
+- Phase 2: Removed dirty-region tracking from ScreenBuffer (Amp does full-grid scan)
+- Phase 3: Removed sizedByParent/performResize, RelayoutBoundary, RepaintBoundary, didChangeDependencies, deactivate
+- Phase 4: Removed RelayoutBoundary optimization from success criteria
+- Phase 8: Updated perf-stress validation criteria (no RelayoutBoundary to validate)

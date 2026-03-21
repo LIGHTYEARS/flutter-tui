@@ -21,8 +21,8 @@ Deliver a production-grade, Flutter-faithful TUI framework where developers comp
 <!-- Current scope. Building toward these. -->
 
 - [ ] Core type primitives (Offset, Size, Rect, Color, TextStyle, TextSpan, BoxConstraints, Key, Listenable/ChangeNotifier)
-- [ ] Terminal abstraction layer (Cell, ScreenBuffer with dirty-region tracking, diff, ANSI renderer, raw mode, capability detection)
-- [ ] Three-tree framework (Widget/Element/RenderObject lifecycle, canUpdate, updateChild 4-case, updateChildren O(N), RelayoutBoundary, RepaintBoundary, ErrorWidget, BuildOwner, PipelineOwner, runApp)
+- [ ] Terminal abstraction layer (Cell, ScreenBuffer with full-grid diff, ANSI renderer, raw mode, capability detection)
+- [ ] Three-tree framework (Widget/Element/RenderObject lifecycle, canUpdate, updateChild 4-case, updateChildren O(N), ErrorWidget, BuildOwner, PipelineOwner, runApp; no RelayoutBoundary/RepaintBoundary per Amp)
 - [ ] Layout system (Flex 6-step algorithm, Padding, ConstrainedBox, DecoratedBox)
 - [ ] Frame scheduler + paint pipeline (on-demand rendering, 4-phase pipeline, PaintContext, ScreenBuffer integration)
 - [ ] Input system (keyboard, mouse SGR, input parser state machine, focus management, event dispatch pipeline)
@@ -110,7 +110,7 @@ Deliver a production-grade, Flutter-faithful TUI framework where developers comp
 - **Coordinates**: Integer-only (col, row) — no floating point in layout
 - **Testing**: TDD with bun test, >80% coverage on core modules
 - **Architecture**: 100% fidelity to Amp CLI's TUI implementation — every class, lifecycle, algorithm must match the reverse-engineered original. Reference `.reference/` and `amp-strings.txt` before implementing.
-- **Performance**: 1000-widget tree must maintain 60fps rendering (validated by RelayoutBoundary + RepaintBoundary)
+- **Performance**: 1000-widget tree must maintain 60fps rendering (on-demand scheduling + root-driven layout)
 - **Dependencies**: Zero transitive runtime dependencies; vendored wcwidth table; use Intl.Segmenter for grapheme boundaries
 
 ## Key Decisions
@@ -122,17 +122,18 @@ Deliver a production-grade, Flutter-faithful TUI framework where developers comp
 | Integer coordinates everywhere | Terminal cells are discrete; sub-pixel makes no sense | Affirmed |
 | Immutable Widget, mutable Element/RenderObject | Faithful to Flutter model; enables efficient reconciliation | Affirmed |
 | On-demand frame scheduling (not fixed 60fps timer) | Terminals are idle 99% of the time; on-demand saves CPU/bandwidth; configurable SchedulerMode for animations | Revised from "60fps" |
-| Cell-level diff with dirty-region optimization | Start with full-buffer diff (simple, correct); add dirty-region-scoped comparison when profiling shows need | Affirmed + planned optimization |
+| Cell-level diff with full-buffer comparison | Amp does full-grid scan every frame (only optimization: EMPTY_CELL identity check). No dirty-region tracking. Simple and correct. | Revised from "dirty-region optimization" after Amp analysis |
 | No JSX | Matches Flutter pattern; pure constructor composition; invest in examples for onboarding | Affirmed |
 | Bun-first with platform.ts adapter | Better performance than Node; native TS; isolate Bun-specific calls (~5 functions) behind adapter for future portability | Revised — added isolation layer |
 | Zero transitive runtime deps | Vendor wcwidth table (~150-line lookup); use Intl.Segmenter for graphemes; no node_modules at runtime | Revised from "zero deps" |
 | Abstract classes for Widget/Element/RenderObject | Carry default implementations (canUpdate, createElement); enforce contracts at type level; interfaces cannot do this | Added |
 | Options objects for >2 params | TypeScript lacks named params; 0-2 required positional, rest in options object for readability | Added |
 | Discriminated unions for InputEvent | Events are data (exhaustive switch); widgets are behavior (class hierarchy) — use the right pattern for each | Added |
-| layout() vs performLayout() split | Parent calls layout(constraints, parentUsesSize); subclass overrides performLayout(). Critical for RelayoutBoundary. | Added |
-| RelayoutBoundary + RepaintBoundary | Without these, markNeedsLayout walks to root on every dirty. Required for 1000-widget 60fps target. | Added |
+| layout() vs performLayout() split | Parent calls layout(constraints); subclass overrides performLayout(). No sizedByParent/performResize/parentUsesSize in Amp — all sizing in performLayout(). Offset stored on RenderBox directly. | Revised after Amp analysis |
+| No RelayoutBoundary / No RepaintBoundary | Amp does NOT implement these Flutter optimizations. markNeedsLayout() always propagates to root. PipelineOwner.flushLayout() layouts from root. Full repaint every frame. TUI workloads are small enough that this works. | Revised — removed per Amp fidelity |
+| No didChangeDependencies / No deactivate | Amp's State lifecycle is: initState → build → didUpdateWidget → dispose. No didChangeDependencies callback. Elements go mounted → unmounted directly (no deactivate intermediate state). | Revised — removed per Amp fidelity |
 | Vendored wcwidth over zero-dep purity | CJK width calculation is subtle (emoji, Hangul, ZWJ). Vendoring battle-tested table avoids rendering bugs. | Added |
 | Frame budget instrumentation | BUILD+LAYOUT+PAINT budget ≤12ms (leaving 4ms for RENDER+input). Debug warning when exceeded. | Added |
 
 ---
-*Last updated: 2026-03-21 after 4-agent verification review*
+*Last updated: 2026-03-21 — Amp fidelity reconciliation after .reference/ extraction*
