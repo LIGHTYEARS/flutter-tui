@@ -42,9 +42,61 @@ Deliver a production-grade, Flutter-faithful TUI framework where developers comp
 - Navigator/Route — screen management deferred to v2
 - Overlay/OverlayEntry — popup/dialog layer deferred to v2
 
+## Reverse-Engineering Source of Truth
+
+**Goal: 100% fidelity to Amp CLI's TUI implementation.** Every class, method, algorithm, and rendering behavior must match the original.
+
+**Reference materials** (in `.reference/`):
+- `widget-tree.md` — Widget/State lifecycle strings and patterns
+- `element-tree.md` — Element reconciliation, BuildOwner, dirty management
+- `render-tree.md` — RenderObject/RenderBox layout/paint protocol
+- `screen-buffer.md` — Double-buffered rendering, diff, ANSI output
+- `frame-scheduler.md` — 4-phase pipeline, frame scheduling
+- `input-system.md` — Keyboard/mouse parsing, focus management
+- `widgets-catalog.md` — Built-in widget implementations
+
+**Amp binary**: `/home/gem/home/tmp/amp-binary` (107MB, Bun --compile, v0.0.1774051433-g91f10a)
+**Extracted strings**: `/home/gem/home/tmp/amp-strings.txt` (531,013 lines)
+
+**Known minified identifiers** (Amp → Concept):
+
+| Minified | Concept | Category |
+|----------|---------|----------|
+| `Sf` | Widget base | Widget tree |
+| `H3` | StatelessWidget | Widget tree |
+| `H8` | StatefulWidget | Widget tree |
+| `_8` | State<T> | Widget tree |
+| `Bt` | InheritedWidget | Widget tree |
+| `T` / `lU0` | Element | Element tree |
+| `NB0` | BuildOwner | Element tree |
+| `j9` | RenderBox | Render tree |
+| `UB0` | PipelineOwner | Render tree |
+| `c9` | FrameScheduler | Scheduling |
+| `ij` | ScreenBuffer | Terminal |
+| `wB0` | TerminalManager | Terminal |
+| `BB0` | PerformanceOverlay | Diagnostics |
+| `J3` | WidgetsBinding | Binding |
+| `e0` | Text widget | Widgets |
+| `o8` | Column | Widgets |
+| `q8` | Row | Widgets |
+| `R4` | SingleChildScrollView | Widgets |
+| `X0` | SizedBox | Widgets |
+| `R8` | Padding | Widgets |
+| `A8` | Container | Widgets |
+| `u3` | Expanded | Widgets |
+| `jA` | Table | Widgets |
+| `Bn` | DiffView | Widgets |
+| `ab` | Dialog | Widgets |
+
+**Development rule**: Before implementing any class or algorithm, the developer MUST:
+1. Search `.reference/` and `amp-strings.txt` for the corresponding Amp implementation
+2. Identify the minified class/method and surrounding patterns
+3. Match the exact behavior, method signatures, and algorithm steps
+4. Document the Amp reference (line numbers) in code comments
+
 ## Context
 
-- Reverse-engineered from Amp CLI binary analysis revealing a complete Flutter-for-Terminal implementation
+- Reverse-engineered from Amp CLI binary analysis (Bun v1.3.10, JavaScriptCore, `/$bunfs/` virtual filesystem)
 - Key architectural patterns identified: immutable Widgets, mutable Elements/RenderObjects, synchronous frame pipeline
 - Terminal rendering uses double-buffered ScreenBuffer with cell-level diff producing minimal ANSI escape sequences
 - All coordinates are integer (col, row) — no sub-pixel positioning
@@ -57,7 +109,7 @@ Deliver a production-grade, Flutter-faithful TUI framework where developers comp
 - **Runtime**: Bun v1.3.10+ (primary), TypeScript strict mode; Bun-specific calls isolated behind platform.ts adapter
 - **Coordinates**: Integer-only (col, row) — no floating point in layout
 - **Testing**: TDD with bun test, >80% coverage on core modules
-- **Architecture**: Must faithfully follow Flutter's three-tree model — no shortcuts that break the abstraction
+- **Architecture**: 100% fidelity to Amp CLI's TUI implementation — every class, lifecycle, algorithm must match the reverse-engineered original. Reference `.reference/` and `amp-strings.txt` before implementing.
 - **Performance**: 1000-widget tree must maintain 60fps rendering (validated by RelayoutBoundary + RepaintBoundary)
 - **Dependencies**: Zero transitive runtime dependencies; vendored wcwidth table; use Intl.Segmenter for grapheme boundaries
 
