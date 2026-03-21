@@ -62,6 +62,16 @@ export class BoxConstraints {
 
   // --- Constraint operations ---
 
+  /** Return a copy with minWidth=0 and minHeight=0, keeping max values. */
+  loosen(): BoxConstraints {
+    return new BoxConstraints({
+      minWidth: 0,
+      minHeight: 0,
+      maxWidth: this.maxWidth,
+      maxHeight: this.maxHeight,
+    });
+  }
+
   /** Clamp a size to fit within these constraints. */
   constrain(size: Size): Size {
     return new Size(
