@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Flutter-faithful TUI framework with declarative widgets, box-constraint layout, and 60fps cell-level diff rendering
-**Current focus:** v1.1 Amp CLI Feature Parity — Phase 9: Text & Render Foundations
+**Current focus:** v1.1 Amp CLI Feature Parity — Phase 10: Infrastructure Layer
 
 ## Current Position
 
-Phase: 9 of 15 (Text & Render Foundations)
-Plan: 2 of 3 in current phase
+Phase: 10 of 15 (Infrastructure Layer)
+Plan: 0 of 3 in current phase
 Status: Ready to execute
 Last activity: 2026-03-22
 

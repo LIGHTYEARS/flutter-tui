@@ -24,7 +24,7 @@ Build a complete Flutter-for-Terminal framework in TypeScript/Bun, progressing f
 
 ### v1.1 Phases
 
-- [ ] **Phase 9: Text & Render Foundations** — TextStyle/TextSpan API enhancements, ClipCanvas, RenderFlex intrinsic sizes
+- [x] **Phase 9: Text & Render Foundations** — TextStyle/TextSpan API enhancements, ClipCanvas, RenderFlex intrinsic sizes
 - [ ] **Phase 10: Infrastructure Layer** — MediaQuery, Theme, HoverContext InheritedWidgets, WidgetsBinding enhancements, async runApp
 - [ ] **Phase 11: Mouse & Scroll Systems** — MouseTracker/MouseManager, SystemMouseCursors, MouseRegion events, ScrollController animation/followMode
 - [ ] **Phase 12: Core Missing Widgets** — FocusScope/KeyboardListener, ClipRect, IntrinsicHeight, Scrollbar
@@ -363,7 +363,7 @@ Phase 12 + Phase 13 + Phase 14 ──→ Phase 15 (Debug Inspector)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 9. Text & Render Foundations | 0/3 | Not started | - |
+| 9. Text & Render Foundations | 3/3 | Complete | 2026-03-22 |
 | 10. Infrastructure Layer | 0/3 | Not started | - |
 | 11. Mouse & Scroll Systems | 0/2 | Not started | - |
 | 12. Core Missing Widgets | 0/2 | Not started | - |
