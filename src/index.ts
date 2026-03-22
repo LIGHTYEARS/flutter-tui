@@ -19,6 +19,11 @@ export { Theme } from './widgets/theme';
 export type { ThemeData } from './widgets/theme';
 export { HoverContext } from './widgets/hover-context';
 
+// Phase 16: AppTheme & Syntax Highlighting
+export { AppTheme } from './widgets/app-theme';
+export type { AppThemeData, SyntaxHighlightConfig } from './widgets/app-theme';
+export { syntaxHighlight, detectLanguage } from './widgets/syntax-highlight';
+
 // Phase 12: Core Missing Widgets
 export { FocusScope } from './widgets/focus-scope';
 export { ClipRect, RenderClipRect } from './widgets/clip-rect';
@@ -39,3 +44,12 @@ export type { OverlayPosition, OverlayAlignment, OverlaySpec } from './widgets/c
 // Phase 14: RenderText Advanced
 export { Text, RenderText } from './widgets/text';
 export type { TextSelectionRange, CharacterPosition, VisualLine, CharacterInteraction, TextPaintContext } from './widgets/text';
+
+// Phase 19: Image Protocol
+export { ImagePreview, ImagePreviewState, ImagePreviewProvider, KittyImageWidget, RenderKittyImage } from './widgets/image-preview';
+export type { ImagePreviewData } from './widgets/image-preview';
+export { encodeKittyGraphics, buildKittyGraphicsPayload, uint8ArrayToBase64, splitIntoChunks, KITTY_CHUNK_SIZE } from './widgets/image-preview';
+
+// Phase 15: Debug Inspector
+export { DebugInspector, serializeElementTree, serializeFocusTree, findElementById, buildRenderObjectToElementMap, resetStableIds } from './diagnostics/debug-inspector';
+export type { ElementNodeJson, RenderObjectJson, FocusNodeJson, KeystrokeEntry } from './diagnostics/debug-inspector';
