@@ -16,6 +16,7 @@ export class MouseManager {
 
   private _lastPosition: { x: number; y: number } = { x: -1, y: -1 };
   private _currentCursor: string = 'default';
+  private _cursorOverride: string | null = null;
   private _hoveredRegions: Set<RenderMouseRegion> = new Set();
 
   private constructor() {}
@@ -37,6 +38,7 @@ export class MouseManager {
   static reset(): void {
     if (MouseManager._instance) {
       MouseManager._instance._hoveredRegions.clear();
+      MouseManager._instance._cursorOverride = null;
     }
     MouseManager._instance = null;
   }
@@ -51,10 +53,10 @@ export class MouseManager {
 
   /**
    * Current cursor shape string.
-   * Determined by the topmost hovered RenderMouseRegion with a cursor set.
+   * Determined by cursor override (if set), or the topmost hovered RenderMouseRegion with a cursor set.
    */
   get currentCursor(): string {
-    return this._currentCursor;
+    return this._cursorOverride ?? this._currentCursor;
   }
 
   /**
@@ -102,6 +104,20 @@ export class MouseManager {
       y: this._lastPosition.y,
     });
     this.updateCursor();
+  }
+
+  /**
+   * Set a cursor override from non-MouseRegion render objects (e.g., RenderText hyperlinks).
+   * Pass 'default' to clear the override.
+   *
+   * @param cursor Cursor shape string, or 'default' to clear
+   */
+  updateCursorOverride(cursor: string): void {
+    if (cursor === 'default') {
+      this._cursorOverride = null;
+    } else {
+      this._cursorOverride = cursor;
+    }
   }
 
   /**

@@ -4,12 +4,14 @@
 
 import { Key } from '../core/key';
 import { TextStyle } from '../core/text-style';
-import { TextSpan } from '../core/text-span';
+import { TextSpan, TextSpanHyperlink } from '../core/text-span';
 import { Color } from '../core/color';
 import { Offset, Size, Rect } from '../core/types';
 import { BoxConstraints } from '../core/box-constraints';
 import { stringWidth } from '../core/wcwidth';
 import { LeafRenderObjectWidget, RenderBox, PaintContext } from '../framework/render-object';
+import { MouseManager } from '../input/mouse-manager';
+import { SystemMouseCursors } from '../input/mouse-cursors';
 
 // ---------------------------------------------------------------------------
 // Selection range type
@@ -33,6 +35,12 @@ export interface VisualLine {
   readonly startIndex: number;
   readonly endIndex: number;
   readonly row: number;
+}
+
+/** Per-character interaction data cached during layout. */
+export interface CharacterInteraction {
+  readonly hyperlink?: TextSpanHyperlink;
+  readonly onClick?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -120,6 +128,10 @@ export class RenderText extends RenderBox {
   // --- Character position cache (rebuilt during layout) ---
   private _characterPositions: CharacterPosition[] = [];
   private _visualLines: VisualLine[] = [];
+  private _characterInteractions: CharacterInteraction[] = [];
+
+  // --- Emoji width support ---
+  private _emojiWidthSupported: boolean = false;
 
   constructor(opts: {
     text: TextSpan;
@@ -213,6 +225,23 @@ export class RenderText extends RenderBox {
 
   get visualLines(): ReadonlyArray<VisualLine> {
     return this._visualLines;
+  }
+
+  /** Whether the terminal supports wide (2-column) emoji rendering. */
+  get emojiWidthSupported(): boolean {
+    return this._emojiWidthSupported;
+  }
+
+  /**
+   * Update emoji width support flag.
+   * When true, emoji characters are treated as 2 columns wide.
+   * Typically read from MediaQueryData.capabilities.emojiWidth.
+   */
+  updateEmojiSupport(emojiWidth: 'unknown' | 'narrow' | 'wide'): void {
+    const supported = emojiWidth === 'wide';
+    if (this._emojiWidthSupported === supported) return;
+    this._emojiWidthSupported = supported;
+    this.markNeedsLayout();
   }
 
   // --- Selection methods ---
@@ -309,24 +338,118 @@ export class RenderText extends RenderBox {
     return bestIndex;
   }
 
+  // --- Interaction query methods ---
+
+  /**
+   * Find the character index whose cell contains the exact (x, y) position.
+   * Returns -1 if no character cell contains the position.
+   * Unlike getOffsetForPosition (which returns the nearest), this requires
+   * the point to be within the character cell bounds [col, col+width).
+   */
+  private _getCharacterIndexAtExactPosition(x: number, y: number): number {
+    if (this._characterPositions.length === 0) return -1;
+
+    // Find the visual line matching the y coordinate exactly
+    let targetLine: VisualLine | null = null;
+    for (const line of this._visualLines) {
+      if (line.row === y) {
+        targetLine = line;
+        break;
+      }
+    }
+    if (targetLine === null) return -1;
+
+    // Search characters within this line for an exact cell hit
+    for (let i = targetLine.startIndex; i < targetLine.endIndex; i++) {
+      const pos = this._characterPositions[i]!;
+      if (x >= pos.col && x < pos.col + pos.width) {
+        return i;
+      }
+    }
+
+    return -1;
+  }
+
+  /**
+   * Returns the hyperlink at the given (x, y) position, or null if none.
+   * Coordinates are relative to the render object's origin.
+   */
+  getHyperlinkAtPosition(x: number, y: number): TextSpanHyperlink | null {
+    const charIdx = this._getCharacterIndexAtExactPosition(x, y);
+    if (charIdx < 0 || charIdx >= this._characterInteractions.length) return null;
+
+    const interaction = this._characterInteractions[charIdx]!;
+    return interaction.hyperlink ?? null;
+  }
+
+  /**
+   * Returns the onClick handler at the given (x, y) position, or null if none.
+   * Coordinates are relative to the render object's origin.
+   */
+  getOnClickAtPosition(x: number, y: number): (() => void) | null {
+    const charIdx = this._getCharacterIndexAtExactPosition(x, y);
+    if (charIdx < 0 || charIdx >= this._characterInteractions.length) return null;
+
+    const interaction = this._characterInteractions[charIdx]!;
+    return interaction.onClick ?? null;
+  }
+
+  /**
+   * Handle a mouse event at the given position.
+   *
+   * On 'click': invokes onClick handler if found at position.
+   * On 'enter'/'hover': updates cursor to POINTER if hyperlink/onClick present.
+   * On 'exit': resets cursor to DEFAULT.
+   *
+   * @param event Mouse event with type and position
+   */
+  handleMouseEvent(event: { type: string; x: number; y: number }): void {
+    const { type, x, y } = event;
+
+    if (type === 'click') {
+      const onClick = this.getOnClickAtPosition(x, y);
+      if (onClick) {
+        onClick();
+        return;
+      }
+      // Hyperlink click could log or open the URI; for now just a no-op
+      // since opening URIs requires platform integration
+    } else if (type === 'enter' || type === 'hover') {
+      const hasInteraction =
+        this.getHyperlinkAtPosition(x, y) !== null ||
+        this.getOnClickAtPosition(x, y) !== null;
+
+      if (hasInteraction) {
+        MouseManager.instance.updateCursorOverride(SystemMouseCursors.POINTER);
+      }
+    } else if (type === 'exit') {
+      MouseManager.instance.updateCursorOverride(SystemMouseCursors.DEFAULT);
+    }
+  }
+
   /**
    * Extract lines from the TextSpan tree.
-   * Returns an array of lines, where each line is an array of { char, style } segments.
+   * Returns an array of lines, where each line is an array of { char, style, hyperlink, onClick } segments.
    */
-  private _getLines(): { char: string; style: TextStyle }[][] {
-    const segments: { text: string; style: TextStyle }[] = [];
-    this._text.visitChildren((text, style) => {
-      segments.push({ text, style });
+  private _getLines(): { char: string; style: TextStyle; hyperlink?: TextSpanHyperlink; onClick?: () => void }[][] {
+    const segments: { text: string; style: TextStyle; hyperlink?: TextSpanHyperlink; onClick?: () => void }[] = [];
+    this._text.visitChildren((text, style, hyperlink, onClick) => {
+      segments.push({ text, style, hyperlink, onClick });
     });
 
     // Build character-level line data
-    const lines: { char: string; style: TextStyle }[][] = [[]];
+    const lines: { char: string; style: TextStyle; hyperlink?: TextSpanHyperlink; onClick?: () => void }[][] = [[]];
     for (const seg of segments) {
       for (const ch of seg.text) {
         if (ch === '\n') {
           lines.push([]);
         } else {
-          lines[lines.length - 1]!.push({ char: ch, style: seg.style });
+          lines[lines.length - 1]!.push({
+            char: ch,
+            style: seg.style,
+            hyperlink: seg.hyperlink,
+            onClick: seg.onClick,
+          });
         }
       }
     }
@@ -336,7 +459,7 @@ export class RenderText extends RenderBox {
   /**
    * Compute the display width of a line (array of char+style pairs).
    */
-  private _lineWidth(line: { char: string; style: TextStyle }[]): number {
+  private _lineWidth(line: { char: string; style: TextStyle; hyperlink?: TextSpanHyperlink; onClick?: () => void }[]): number {
     let w = 0;
     for (const { char } of line) {
       w += stringWidth(char);
@@ -377,9 +500,10 @@ export class RenderText extends RenderBox {
    * Rebuild the character position and visual line caches.
    * Called during performLayout() after the text lines are computed.
    */
-  private _rebuildPositionCache(displayLines: { char: string; style: TextStyle }[][]): void {
+  private _rebuildPositionCache(displayLines: { char: string; style: TextStyle; hyperlink?: TextSpanHyperlink; onClick?: () => void }[][]): void {
     const positions: CharacterPosition[] = [];
     const visualLines: VisualLine[] = [];
+    const interactions: CharacterInteraction[] = [];
     const availWidth = this.size.width;
     let charIndex = 0;
 
@@ -399,9 +523,13 @@ export class RenderText extends RenderBox {
       const lineStartIndex = charIndex;
 
       let col = leftOffset;
-      for (const { char } of line) {
+      for (const { char, hyperlink, onClick } of line) {
         const charW = stringWidth(char);
         positions.push({ col, row: lineIdx, width: charW });
+        interactions.push({
+          hyperlink: hyperlink,
+          onClick: onClick,
+        });
         col += charW;
         charIndex++;
       }
@@ -415,6 +543,7 @@ export class RenderText extends RenderBox {
 
     this._characterPositions = positions;
     this._visualLines = visualLines;
+    this._characterInteractions = interactions;
   }
 
   // Amp ref: gU0.paint()
@@ -519,15 +648,15 @@ export class RenderText extends RenderBox {
    * Apply ellipsis: truncate line so it fits in availWidth with '...' at end.
    */
   private _applyEllipsis(
-    line: { char: string; style: TextStyle }[],
+    line: { char: string; style: TextStyle; hyperlink?: TextSpanHyperlink; onClick?: () => void }[],
     availWidth: number,
-  ): { char: string; style: TextStyle }[] {
+  ): { char: string; style: TextStyle; hyperlink?: TextSpanHyperlink; onClick?: () => void }[] {
     const ellipsis = '...';
     const ellipsisWidth = 3; // each '.' is width 1
 
     if (availWidth <= ellipsisWidth) {
       // Not enough room for ellipsis, just show dots that fit
-      const result: { char: string; style: TextStyle }[] = [];
+      const result: { char: string; style: TextStyle; hyperlink?: TextSpanHyperlink; onClick?: () => void }[] = [];
       const lastStyle = line.length > 0 ? line[line.length - 1]!.style : new TextStyle();
       for (let i = 0; i < availWidth; i++) {
         result.push({ char: '.', style: lastStyle });
@@ -537,7 +666,7 @@ export class RenderText extends RenderBox {
 
     // Truncate line to fit availWidth - ellipsisWidth, then append '...'
     const targetWidth = availWidth - ellipsisWidth;
-    const result: { char: string; style: TextStyle }[] = [];
+    const result: { char: string; style: TextStyle; hyperlink?: TextSpanHyperlink; onClick?: () => void }[] = [];
     let currentWidth = 0;
     for (const entry of line) {
       const charW = stringWidth(entry.char);

@@ -38,4 +38,4 @@ export type { OverlayPosition, OverlayAlignment, OverlaySpec } from './widgets/c
 
 // Phase 14: RenderText Advanced
 export { Text, RenderText } from './widgets/text';
-export type { TextSelectionRange, CharacterPosition, VisualLine, TextPaintContext } from './widgets/text';
+export type { TextSelectionRange, CharacterPosition, VisualLine, CharacterInteraction, TextPaintContext } from './widgets/text';
