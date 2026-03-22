@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 ## Current Position
 
 Phase: 9 of 15 (Text & Render Foundations)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-03-22 — v1.1 roadmap created (7 phases, 16 plans, 38 requirements)
+Plan: 1 of 3 in current phase
+Status: Executing
+Last activity: 2026-03-22 — Phase 9 Plan 01 (TextStyle Enhancements) completed
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 6%
 
 ## Performance Metrics
 
@@ -36,6 +36,8 @@ Recent decisions affecting current work:
 - [v1.0]: Cell-level diff for minimal ANSI output
 - [v1.0]: Zero runtime dependencies
 - [v1.1]: Kitty/Sixel image protocol deferred to v2 (not needed for core Amp parity)
+- [v1.1/09-01]: copyWith uses undefined-checking identical to merge(), matching Amp m0.copyWith behavior
+- [v1.1/09-01]: static normal() returns empty TextStyle when no color provided
 
 ### Pending Todos
 
@@ -49,5 +51,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Defining v1.1 requirements and roadmap
+Stopped at: Completed 09-01 TextStyle Enhancements
 Resume file: None
