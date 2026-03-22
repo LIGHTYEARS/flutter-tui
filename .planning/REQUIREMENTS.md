@@ -94,8 +94,8 @@ Requirements for Amp CLI feature parity. Each maps to roadmap phases 9+.
 
 ### RenderObject Enhancements (ROBJ)
 
-- [ ] **ROBJ-01**: RenderText selection support — selectable flag, selectedRanges[], selectionColor, copyHighlightColor, highlightMode (Amp: gU0)
-- [ ] **ROBJ-02**: RenderText character position tracking — _characterPositions[], _visualLines[] cache, getCharacterRect(index), getOffsetForPosition(x,y) (Amp: gU0)
+- [x] **ROBJ-01**: RenderText selection support — selectable flag, selectedRanges[], selectionColor, copyHighlightColor, highlightMode (Amp: gU0)
+- [x] **ROBJ-02**: RenderText character position tracking — _characterPositions[], _visualLines[] cache, getCharacterRect(index), getOffsetForPosition(x,y) (Amp: gU0)
 - [ ] **ROBJ-03**: RenderText hyperlink/click handling — getHyperlinkAtPosition(), getOnClickAtPosition(), handleMouseEvent() with cursor changes (Amp: gU0)
 - [ ] **ROBJ-04**: RenderText emoji width detection — _emojiWidthSupported flag from MediaQuery capabilities (Amp: gU0)
 - [ ] **ROBJ-05**: RenderFlex intrinsic size methods — getMinIntrinsicWidth(h), getMaxIntrinsicWidth(h), getMinIntrinsicHeight(w), getMaxIntrinsicHeight(w) (Amp: oU0)
@@ -190,8 +190,8 @@ All 65 v1.0 requirements completed across Phases 1-8. See MILESTONES.md.
 | TEXT-03 | Phase 9 | Complete |
 | TEXT-04 | Phase 9 | Complete |
 | TEXT-05 | Phase 9 | Complete |
-| ROBJ-01 | Phase 14 | Pending |
-| ROBJ-02 | Phase 14 | Pending |
+| ROBJ-01 | Phase 14 | Complete |
+| ROBJ-02 | Phase 14 | Complete |
 | ROBJ-03 | Phase 14 | Pending |
 | ROBJ-04 | Phase 14 | Pending |
 | ROBJ-05 | Phase 9 | Pending |

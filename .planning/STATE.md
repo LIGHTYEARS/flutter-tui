@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Phases
 status: executing
-stopped_at: Completed 13-03-PLAN.md
-last_updated: "2026-03-22T03:49:00Z"
+stopped_at: Completed 14-01-PLAN.md
+last_updated: "2026-03-22T04:01:40.749Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 0
-  completed_plans: 7
-  percent: 9
+  completed_plans: 4
+  percent: 6
 ---
 
 # Project State
@@ -64,6 +64,8 @@ Recent decisions affecting current work:
 - [Phase 13]: Dialog is a plain data class (not a Widget) consumed by application shell
 - [Phase 13]: SelectionList uses FocusScope wrapper for keyboard event handling with wrap-around navigation
 - [Phase 13]: ContainerWithOverlays groups overlays by position:alignment key, uses Stack passthrough fit
+- [Phase 14]: Selection highlight uses TextStyle.copyWith to overlay background color, preserving existing style attributes
+- [Phase 14]: Character position cache rebuilt during performLayout() with center-based hit testing
 
 ### Pending Todos
 
@@ -76,6 +78,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T03:49:00Z
-Stopped at: Completed 13-03-PLAN.md
+Last session: 2026-03-22T04:01:40.742Z
+Stopped at: Completed 14-01-PLAN.md
 Resume file: None
