@@ -4,12 +4,13 @@
 
 Build a complete Flutter-for-Terminal framework in TypeScript/Bun, progressing from core type primitives through terminal abstraction, three-tree widget framework, layout engine, frame scheduling, input handling, high-level widgets, and finally diagnostics with example applications. Each phase builds on the previous, with parallel development opportunities across phases.
 
-**Last review:** 2026-03-22 — v1.1 milestone roadmap added. 7 new phases (9-15), 38 requirements.
+**Last review:** 2026-03-22 — v1.2 milestone roadmap added. 7 new phases (16-22), 35 requirements.
 
 ## Milestones
 
 - ✓ **v1.0 MVP** — Phases 1-8 (complete, shipped 2026-03-21)
-- 📋 **v1.1 Amp CLI Feature Parity** — Phases 9-15 (planned)
+- ✓ **v1.1 Amp CLI Feature Parity** — Phases 9-15 (complete, shipped 2026-03-22)
+- 📋 **v1.2 Amp CLI Deep Fidelity** — Phases 16-22 (planned)
 
 ## Phases
 
@@ -22,15 +23,25 @@ Build a complete Flutter-for-Terminal framework in TypeScript/Bun, progressing f
 - [x] **Phase 7: High-Level Widgets** — Text, Container, Flex, ScrollView, ListView, TextField, Button, Table
 - [x] **Phase 8: Diagnostics & Examples** — Performance overlay, frame stats, debug flags, 28 example applications
 
-### v1.1 Phases
+### v1.1 Phases (Complete)
 
 - [x] **Phase 9: Text & Render Foundations** — TextStyle/TextSpan API enhancements, ClipCanvas, RenderFlex intrinsic sizes
 - [x] **Phase 10: Infrastructure Layer** — MediaQuery, Theme, HoverContext InheritedWidgets, WidgetsBinding enhancements, async runApp
 - [x] **Phase 11: Mouse & Scroll Systems** — MouseTracker/MouseManager, SystemMouseCursors, MouseRegion events, ScrollController animation/followMode
 - [x] **Phase 12: Core Missing Widgets** — FocusScope/KeyboardListener, ClipRect, IntrinsicHeight, Scrollbar
-- [ ] **Phase 13: Advanced Widgets** — DiffView, Dialog/SelectionList, Markdown, ContainerWithOverlays
-- [ ] **Phase 14: RenderText Advanced** — Text selection/highlight, character position tracking, hyperlink click, emoji width
-- [ ] **Phase 15: Debug Inspector** — HTTP server on port 9876, widget tree JSON endpoints
+- [x] **Phase 13: Advanced Widgets** — DiffView, Dialog/SelectionList, Markdown, ContainerWithOverlays
+- [x] **Phase 14: RenderText Advanced** — Text selection/highlight, character position tracking, hyperlink click, emoji width
+- [x] **Phase 15: Debug Inspector** — HTTP server on port 9876, widget tree JSON endpoints
+
+### v1.2 Phases
+
+- [ ] **Phase 16: AppTheme & Syntax Highlighting** — AppTheme InheritedWidget (h8), syntax highlighting function (ae), DiffView integration
+- [ ] **Phase 17: Rendering Pipeline Enhancements** — Alpha compositing, RGB→256-color fallback, default colors, index-RGB mapping, Buffer.copyTo
+- [ ] **Phase 18: Terminal Protocol Extensions** — Kitty keyboard, ModifyOtherKeys, emoji width mode, in-band resize, progress bar/title/cursor OSC, pixel mouse, cleanup, capability queries
+- [ ] **Phase 19: Image Protocol** — ImagePreview (O_), KittyImageWidget (IH0), ImagePreviewProvider (X_), Kitty graphics escape sequences
+- [ ] **Phase 20: TextField Complete Rewrite** — Multi-line, word operations, mouse interaction, selection/clipboard, RenderText-based rendering
+- [ ] **Phase 21: Performance Diagnostics Upgrade** — PerformanceTracker full metrics, direct-to-buffer overlay rendering, toggleFrameStatsOverlay
+- [ ] **Phase 22: Minor Fidelity Fixes** — JetBrains wheel filter, setCursorPositionHint, resize priority callback, paste callbacks, scrollStep, layout helper, getCells
 
 ## Dependency DAG
 
@@ -321,6 +332,155 @@ Plans:
 Plans:
 - [ ] 15-01: Debug Inspector — HTTP server with /tree, /inspect, /select endpoints, JSON serialization of widget/element/render trees
 
+---
+
+## v1.2 Phase Details
+
+### Phase 16: AppTheme & Syntax Highlighting
+**Goal**: Add the second theme layer (AppTheme) and syntax highlighting function that DiffView depends on
+**Depends on**: v1.1 complete (DiffView exists, Theme exists)
+**Requirements**: ATHM-01, ATHM-02
+**Success Criteria** (what must be TRUE):
+  1. `AppTheme.of(context)` returns AppTheme data with `syntaxHighlight` and `colors` properties
+  2. AppTheme is distinct from Theme — both can coexist in the widget tree
+  3. `syntaxHighlight(content, config, filePath)` colorizes code based on file extension
+  4. DiffView uses AppTheme for syntax-highlighted diff content
+**Plans**: 2 plans
+
+Plans:
+- [ ] 16-01: AppTheme InheritedWidget — AppTheme class with syntaxHighlight config, colors, `of(context)` accessor
+- [ ] 16-02: Syntax highlighting — `ae()` function with file-extension-based highlighting, DiffView integration
+
+### Phase 17: Rendering Pipeline Enhancements
+**Goal**: Add alpha compositing, 256-color fallback, and buffer utilities to the rendering pipeline
+**Depends on**: v1.1 complete (ScreenBuffer, Renderer exist)
+**Requirements**: RPIP-01, RPIP-02, RPIP-03, RPIP-04, RPIP-05
+**Success Criteria** (what must be TRUE):
+  1. Color class supports alpha property (0-1 range)
+  2. `Buffer.setCell()` blends styles when foreground has alpha < 1
+  3. `blendColor(front, back)` produces correct alpha-composited RGB output
+  4. `sJ(r, g, b)` returns nearest 256-color index with cached results
+  5. Renderer outputs 256-color SGR (`38;5;N`) when `capabilities.canRgb` is false
+  6. `Buffer.setDefaultColors(bg, fg)` sets buffer defaults
+  7. `Buffer.copyTo(target)` deep-copies all cells
+**Plans**: 3 plans
+
+Plans:
+- [ ] 17-01: Alpha compositing — Color.alpha, blendColor(), blendStyle(), Buffer.setCell() alpha path
+- [ ] 17-02: 256-color fallback — sJ() nearest-match, Uu0 palette table, Renderer conditional SGR output
+- [ ] 17-03: Buffer utilities — setDefaultColors(), setIndexRgbMapping(), copyTo(), getCells()
+
+### Phase 18: Terminal Protocol Extensions
+**Goal**: Add all missing terminal mode escape sequences for full Amp terminal initialization parity
+**Depends on**: Phase 17 (Renderer enhanced)
+**Requirements**: TPRO-01 through TPRO-10
+**Success Criteria** (what must be TRUE):
+  1. Kitty keyboard protocol enables/disables correctly
+  2. ModifyOtherKeys mode enables/disables correctly
+  3. Emoji width mode toggles correctly
+  4. In-band resize events received via escape sequence
+  5. Progress bar OSC sequences emit correctly (indeterminate/off/paused)
+  6. Window title and mouse cursor shape set via OSC
+  7. Pixel mouse enable/disable works
+  8. Terminal cleanup (`zG8`) disables all 12+ modes on exit
+  9. Capability detection sends queries and parses responses
+**Plans**: 3 plans
+
+Plans:
+- [ ] 18-01: Keyboard protocols — Kitty keyboard (ESC[>5u/ESC[<u]), ModifyOtherKeys (ESC[>4;1m/ESC[>4;0m)
+- [ ] 18-02: Terminal modes — Emoji width, in-band resize, pixel mouse, progress bar OSC, title OSC, cursor shape OSC
+- [ ] 18-03: Cleanup & capability detection — zG8 comprehensive cleanup, vF queryParser with escape-sequence capability queries
+
+### Phase 19: Image Protocol
+**Goal**: Implement Kitty graphics protocol for inline image display in terminal
+**Depends on**: Phase 18 (terminal protocol infrastructure), Phase 16 (AppTheme for image context)
+**Requirements**: IMG-01, IMG-02, IMG-03
+**Success Criteria** (what must be TRUE):
+  1. ImagePreviewProvider provides image context to descendant widgets
+  2. ImagePreview widget displays PNG data using Kitty `ESC_G` chunked transfer
+  3. KittyImageWidget render object places image cells correctly
+  4. Falls back to empty SizedBox when terminal lacks Kitty support
+  5. Capability detection from Phase 18 feeds `kittyGraphics` flag
+**Plans**: 2 plans
+
+Plans:
+- [ ] 19-01: Kitty graphics protocol — ESC_G escape sequences, chunked transfer, cell placement
+- [ ] 19-02: Image widgets — ImagePreview StatefulWidget, KittyImageWidget RenderObject, ImagePreviewProvider InheritedWidget
+
+### Phase 20: TextField Complete Rewrite
+**Goal**: Replace skeleton TextField with full-featured text editor matching Amp's `_n`/`Ny`/`rp` implementation
+**Depends on**: Phase 17 (alpha compositing for selection highlight), v1.1 complete (RenderText, MouseManager)
+**Requirements**: TXFD-01 through TXFD-05
+**Success Criteria** (what must be TRUE):
+  1. Multi-line editing works with Enter for newline, Ctrl+Enter for submit
+  2. Single-line mode uses Enter for submit
+  3. Word-level delete/move/select operations functional
+  4. Mouse click places cursor, double-click selects word, drag selects range
+  5. Selection auto-copies to clipboard with visual highlight
+  6. TextField renders via RenderText (not stub display widget)
+  7. CJK characters handled correctly in cursor positioning
+**Plans**: 3 plans
+
+Plans:
+- [ ] 20-01: Multi-line core — maxLines support, configurable submit key, newline insertion variants
+- [ ] 20-02: Word operations & RenderText — word-level delete/move/select, render via Text/RenderText
+- [ ] 20-03: Mouse interaction & clipboard — click/double-click/drag selection, auto-copy, global release tracking
+
+### Phase 21: Performance Diagnostics Upgrade
+**Goal**: Complete the PerformanceTracker metrics and upgrade overlay to direct screen-buffer rendering
+**Depends on**: Phase 17 (alpha compositing for overlay background)
+**Requirements**: PERF-01, PERF-02, PERF-03
+**Success Criteria** (what must be TRUE):
+  1. PerformanceTracker records key/mouse event times, repaint percentages, bytes written
+  2. P95/P99 getters work for all 8 metric categories
+  3. Overlay draws directly to screen buffer (not as a widget in the tree)
+  4. 34x14 box with Unicode borders, color-coded thresholds, "Gotta Go Fast" title
+  5. `toggleFrameStatsOverlay()` toggles with forced paint
+**Plans**: 2 plans
+
+Plans:
+- [ ] 21-01: PerformanceTracker full metrics — add key/mouse/repaint/bytes recording with P95/P99
+- [ ] 21-02: Direct-to-buffer overlay — rewrite PerformanceOverlay as direct screen buffer painter, toggleFrameStatsOverlay on binding
+
+### Phase 22: Minor Fidelity Fixes
+**Goal**: Close remaining small gaps for complete Amp fidelity
+**Depends on**: Phase 18 (terminal infrastructure)
+**Requirements**: MINR-01 through MINR-07
+**Success Criteria** (what must be TRUE):
+  1. JetBrains wheel filter handles non-standard scroll events
+  2. setCursorPositionHint sets position without visibility change
+  3. Resize processed at BUILD priority -1000
+  4. eventCallbacks.paste array functional
+  5. scrollStep capability returns configurable step count
+  6. Layout helper fS() estimates widget tree intrinsic width
+  7. Buffer.getCells() returns deep copy
+**Plans**: 2 plans
+
+Plans:
+- [ ] 22-01: Terminal & input fixes — JetBrains wheel filter, setCursorPositionHint, resize priority, paste callbacks, scrollStep
+- [ ] 22-02: Buffer & layout utilities — getCells() deep copy, fS() layout helper
+
+## v1.2 Parallel Wave Strategy
+
+| Wave | Phase(s) | Plans | Notes |
+|------|----------|-------|-------|
+| W12 | Phase 16 + Phase 17 | 16-01/02 + 17-01/02/03 | Independent: themes vs rendering pipeline |
+| W13 | Phase 18 | 18-01/02/03 | Depends on Phase 17 (Renderer) |
+| W14 | Phase 19 + Phase 20 + Phase 21 | 19-01/02 + 20-01/02/03 + 21-01/02 | All depend on W12/W13; can run in parallel |
+| W15 | Phase 22 | 22-01/02 | Final sweep, depends on Phase 18 |
+
+## v1.2 Dependency DAG
+
+```
+Phase 16 (AppTheme) ──────────────────────→ Phase 19 (Image Protocol)
+                                              ↑
+Phase 17 (Rendering Pipeline) ──→ Phase 18 (Terminal Protocols) ──→ Phase 19
+                                    │                                  ↑
+                                    ├──→ Phase 20 (TextField) ←── Phase 17 (alpha)
+                                    ├──→ Phase 21 (Perf Diag) ←── Phase 17 (alpha)
+                                    └──→ Phase 22 (Minor Fixes)
+```
+
 ## v1.1 Parallel Wave Strategy
 
 | Wave | Phase(s) | Plans | Notes |
@@ -359,7 +519,7 @@ Phase 12 + Phase 13 + Phase 14 ──→ Phase 15 (Debug Inspector)
 | 7. High-Level Widgets | 4/4 | Complete | 2026-03-21 |
 | 8. Diagnostics & Examples | 3/3 | Complete | 2026-03-21 |
 
-### v1.1 Amp CLI Feature Parity
+### v1.1 Amp CLI Feature Parity (Complete)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -367,12 +527,25 @@ Phase 12 + Phase 13 + Phase 14 ──→ Phase 15 (Debug Inspector)
 | 10. Infrastructure Layer | 3/3 | Complete | 2026-03-22 |
 | 11. Mouse & Scroll Systems | 2/2 | Complete | 2026-03-22 |
 | 12. Core Missing Widgets | 2/2 | Complete | 2026-03-22 |
-| 13. Advanced Widgets | 0/3 | Not started | - |
+| 13. Advanced Widgets | 3/3 | Complete | 2026-03-22 |
 | 14. RenderText Advanced | 2/2 | Complete | 2026-03-22 |
-| 15. Debug Inspector | 0/1 | Not started | - |
+| 15. Debug Inspector | 1/1 | Complete | 2026-03-22 |
+
+### v1.2 Amp CLI Deep Fidelity
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 16. AppTheme & Syntax Highlighting | 0/2 | Planned | — |
+| 17. Rendering Pipeline Enhancements | 0/3 | Planned | — |
+| 18. Terminal Protocol Extensions | 0/3 | Planned | — |
+| 19. Image Protocol | 0/2 | Planned | — |
+| 20. TextField Complete Rewrite | 0/3 | Planned | — |
+| 21. Performance Diagnostics Upgrade | 0/2 | Planned | — |
+| 22. Minor Fidelity Fixes | 0/2 | Planned | — |
 
 **v1.0 total: 25/25 complete**
-**v1.1 total: 16 plans** | **38 requirements** | **5 waves (W7-W11)**
+**v1.1 total: 16/16 complete**
+**v1.2 total: 17 plans** | **35 requirements** | **4 waves (W12-W15)**
 
 ---
 

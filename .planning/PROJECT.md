@@ -8,16 +8,18 @@ A complete TUI (Terminal User Interface) rendering framework for TypeScript/Bun,
 
 Deliver a production-grade, Flutter-faithful TUI framework where developers compose terminal UIs from declarative widgets with real layout constraints, achieving on-demand rendering through cell-level diffing — no other TypeScript TUI library provides this architecture.
 
-## Current Milestone: v1.1 Amp CLI Feature Parity
+## Current Milestone: v1.2 Amp CLI Deep Fidelity
 
-**Goal:** Close all remaining gaps between flutter-tui and Amp CLI's reverse-engineered TUI implementation to achieve 100% feature parity.
+**Goal:** Close all remaining rendering pipeline, terminal protocol, and advanced widget gaps identified by systematic Amp source comparison. After v1.2, the framework achieves 100% behavioral fidelity to Amp CLI's TUI.
 
 **Target features:**
-- Missing widgets: FocusScope/KeyboardListener, Scrollbar, SelectionList/Dialog, DiffView, ClipRect, IntrinsicHeight, Markdown, ContainerWithOverlays
-- Missing infrastructure: MediaQuery, Theme, HoverContext InheritedWidgets
-- Missing framework: WidgetsBinding enhancements, async runApp, TextStyle/TextSpan API completions
-- Missing render capabilities: RenderText selection/highlight/hyperlink, RenderFlex intrinsic sizes, ClipCanvas
-- Missing systems: MouseTracker/MouseManager, ScrollController animation/followMode, Debug Inspector
+- AppTheme system (h8) with syntax highlighting for DiffView
+- Rendering pipeline: alpha compositing, RGB→256-color fallback, default colors, buffer utilities
+- Terminal protocols: Kitty keyboard, ModifyOtherKeys, emoji width, in-band resize, progress bar/title/cursor OSC, pixel mouse, comprehensive cleanup, capability queries
+- Image protocol: ImagePreview, KittyImageWidget, ImagePreviewProvider via Kitty graphics
+- TextField complete rewrite: multi-line, word operations, mouse interaction, selection/clipboard, RenderText rendering
+- Performance diagnostics: full metrics (8 categories), direct-to-buffer overlay rendering
+- Minor fidelity fixes: JetBrains wheel filter, setCursorPositionHint, resize priority, paste callbacks, scrollStep, layout helper
 
 ## Requirements
 
@@ -36,18 +38,22 @@ Deliver a production-grade, Flutter-faithful TUI framework where developers comp
 
 ### Active
 
-<!-- Current scope: v1.1 Amp CLI Feature Parity -->
+<!-- Current scope: v1.2 Amp CLI Deep Fidelity -->
 
-- [ ] Missing widgets (FocusScope/KeyboardListener, Scrollbar, SelectionList/Dialog, DiffView, ClipRect, IntrinsicHeight, Markdown, ContainerWithOverlays)
-- [ ] Infrastructure InheritedWidgets (MediaQuery with MediaQueryData, Theme with color scheme, HoverContext)
-- [ ] WidgetsBinding enhancements (mouseManager, eventCallbacks, keyInterceptors, async runApp, MediaQuery wrapping)
-- [ ] TextStyle API completion (static factories, copyWith) and TextSpan API (hyperlink, onClick, equals)
-- [ ] RenderText advanced features (selection, highlight, hyperlink click, character position tracking)
-- [ ] RenderFlex intrinsic size methods (getMinIntrinsicWidth/Height, getMaxIntrinsicWidth/Height)
-- [ ] Mouse/cursor system (MouseTracker/MouseManager singleton, SystemMouseCursors, MouseRegion onDrag/onRelease)
-- [ ] ScrollController enhancements (animateTo, followMode, atBottom)
-- [ ] ClipCanvas paint wrapper
-- [ ] Debug Inspector HTTP server (port 9876, widget tree JSON endpoints)
+- [ ] AppTheme InheritedWidget (h8) with syntaxHighlight config, colors, of(context) accessor
+- [ ] Syntax highlighting function (ae) — file-extension-based code colorization for DiffView
+- [ ] Alpha compositing (Color.alpha, blendColor, blendStyle, Buffer.setCell alpha path)
+- [ ] RGB→256-color fallback (sJ nearest-match, conditional SGR output)
+- [ ] ScreenBuffer default colors, index-RGB mapping, Buffer.copyTo/getCells
+- [ ] Terminal protocol: Kitty keyboard, ModifyOtherKeys, emoji width, in-band resize
+- [ ] Terminal protocol: progress bar OSC, window title, mouse cursor shape, pixel mouse
+- [ ] Terminal cleanup (zG8) — comprehensive exit handler disabling all modes
+- [ ] Terminal capability detection via escape queries (queryParser vF)
+- [ ] Image protocol: ImagePreview (O_), KittyImageWidget (IH0), ImagePreviewProvider (X_)
+- [ ] TextField complete rewrite: multi-line, word ops, mouse interaction, clipboard, RenderText rendering
+- [ ] PerformanceTracker full metrics (key/mouse times, repaint %, bytes written, P95/P99)
+- [ ] PerformanceOverlay direct-to-buffer rendering (34x14 box, color-coded thresholds)
+- [ ] Minor fixes: JetBrains wheel, setCursorPositionHint, resize priority, paste callbacks, scrollStep, layout helper, getCells
 
 ### Out of Scope
 
@@ -57,10 +63,11 @@ Deliver a production-grade, Flutter-faithful TUI framework where developers comp
 - JSX/TSX syntax — pure TypeScript constructors, following Flutter's non-JSX pattern
 - Node.js compatibility layer — Bun-first, may work on Node but not a goal (platform.ts adapter isolates coupling)
 - Accessibility (screen reader) — complex and orthogonal to the core rendering architecture
-- Image protocol (Kitty/Sixel) — ImagePreview, KittyImageWidget, ImagePreviewProvider deferred to v2; requires terminal capability negotiation
+- Sixel image rendering — Amp only uses Kitty protocol; Sixel not needed
 - Animation framework — defer tweens/curves to v2; v1 handles manual setState-driven updates
-- Navigator/Route — screen management deferred to v2
-- Overlay/OverlayEntry — popup/dialog layer deferred to v2
+- Navigator/Route — screen management deferred to v2; Amp uses state-based UI switching
+- GestureDetector/GestureRecognizer — Amp only uses MouseRegion; no gesture recognizer pattern
+- ListView/SliverList — Amp only uses SingleChildScrollView; no sliver protocol
 
 ## Reverse-Engineering Source of Truth
 
@@ -173,4 +180,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-22 — v1.1 milestone started (Amp CLI Feature Parity)*
+*Last updated: 2026-03-22 — v1.2 milestone started (Amp CLI Deep Fidelity)*
