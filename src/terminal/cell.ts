@@ -1,7 +1,7 @@
 // Cell type and helpers for the double-buffered terminal screen.
 // Amp ref: amp-strings.txt:529716 — q3 createCell, yu EMPTY_CELL, bF8 cellsEqual, sF8 stylesEqual
 
-import { Color } from '../core/color.js';
+import { Color, blendColor } from '../core/color.js';
 
 /**
  * Visual style attributes for a single terminal cell.
@@ -128,4 +128,39 @@ export interface CellPatch {
 export interface RowPatch {
   row: number;       // the row index
   patches: CellPatch[];  // contiguous runs of changed cells in this row
+}
+
+/**
+ * Blend two CellStyles using alpha compositing on fg/bg colors.
+ * Boolean attributes (bold, italic, etc.) are inherited from front.
+ * Colors with alpha < 1 are blended using blendColor.
+ */
+export function blendStyle(front: CellStyle, back: CellStyle): CellStyle {
+  let fg: Color | undefined = front.fg;
+  let bg: Color | undefined = front.bg;
+
+  // Blend fg color if front fg has alpha < 1
+  if (front.fg && front.fg.alpha < 1.0 && back.fg) {
+    fg = blendColor(front.fg, back.fg);
+  } else if (!front.fg) {
+    fg = back.fg;
+  }
+
+  // Blend bg color if front bg has alpha < 1
+  if (front.bg && front.bg.alpha < 1.0 && back.bg) {
+    bg = blendColor(front.bg, back.bg);
+  } else if (!front.bg) {
+    bg = back.bg;
+  }
+
+  return {
+    fg,
+    bg,
+    bold: front.bold ?? back.bold,
+    italic: front.italic ?? back.italic,
+    underline: front.underline ?? back.underline,
+    strikethrough: front.strikethrough ?? back.strikethrough,
+    dim: front.dim ?? back.dim,
+    inverse: front.inverse ?? back.inverse,
+  };
 }

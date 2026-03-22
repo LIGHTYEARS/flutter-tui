@@ -85,7 +85,7 @@ const SGR_STRIKETHROUGH_OFF = '29';
  *
  * Amp ref: WF8 buildSgrDelta — mutates currentState, emits delta codes
  */
-export function buildSgrDelta(prev: CellStyle, next: CellStyle): string {
+export function buildSgrDelta(prev: CellStyle, next: CellStyle, capabilities?: TerminalCapabilities | null): string {
   if (stylesEqual(prev, next)) return '';
 
   const needsReset = checkNeedsReset(prev, next);
@@ -94,8 +94,8 @@ export function buildSgrDelta(prev: CellStyle, next: CellStyle): string {
   if (needsReset) {
     codes.push('0');
     // After reset, emit ALL attributes of next
-    addColorCodes(codes, undefined, next.fg, true);
-    addColorCodes(codes, undefined, next.bg, false);
+    addColorCodes(codes, undefined, next.fg, true, capabilities);
+    addColorCodes(codes, undefined, next.bg, false, capabilities);
     if (next.bold) codes.push(SGR_BOLD_ON);
     if (next.dim) codes.push(SGR_DIM_ON);
     if (next.italic) codes.push(SGR_ITALIC_ON);
@@ -104,8 +104,8 @@ export function buildSgrDelta(prev: CellStyle, next: CellStyle): string {
     if (next.strikethrough) codes.push(SGR_STRIKETHROUGH_ON);
   } else {
     // Incremental delta: only emit what changed
-    addColorCodes(codes, prev.fg, next.fg, true);
-    addColorCodes(codes, prev.bg, next.bg, false);
+    addColorCodes(codes, prev.fg, next.fg, true, capabilities);
+    addColorCodes(codes, prev.bg, next.bg, false, capabilities);
     addBoolAttrDelta(codes, prev, next);
   }
 
@@ -193,6 +193,8 @@ function addBoolAttrDelta(codes: string[], prev: CellStyle, next: CellStyle): vo
 /**
  * Add color SGR codes if the color changed between prev and next.
  * Uses Color.toSgrFg() / toSgrBg() for output.
+ * When capabilities are provided and trueColor is false, RGB colors are
+ * downconverted to ansi256 before emitting SGR codes.
  * Amp ref: Wu0 colorToSgr
  */
 function addColorCodes(
@@ -200,6 +202,7 @@ function addColorCodes(
   prevColor: Color | undefined,
   nextColor: Color | undefined,
   isFg: boolean,
+  capabilities?: TerminalCapabilities | null,
 ): void {
   // Both undefined — no change
   if (prevColor === nextColor) return;
@@ -209,8 +212,13 @@ function addColorCodes(
     // Reset to default
     codes.push(isFg ? '39' : '49');
   } else {
+    // Downconvert RGB to ansi256 when terminal doesn't support true color
+    let color = nextColor;
+    if (capabilities && !capabilities.trueColor && color.mode === 'rgb') {
+      color = color.toAnsi256();
+    }
     // Emit the color's SGR parameter
-    codes.push(isFg ? nextColor.toSgrFg() : nextColor.toSgrBg());
+    codes.push(isFg ? color.toSgrFg() : color.toSgrBg());
   }
 }
 
@@ -320,7 +328,7 @@ export class Renderer {
           }
 
           // Compute and emit SGR delta
-          const sgrDelta = buildSgrDelta(this.lastStyle, cell.style);
+          const sgrDelta = buildSgrDelta(this.lastStyle, cell.style, this._capabilities);
           if (sgrDelta) {
             parts.push(sgrDelta);
           }

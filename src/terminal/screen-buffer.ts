@@ -10,7 +10,10 @@ import {
   EMPTY_CELL,
   createCell,
   cellsEqual,
+  cloneCell,
 } from './cell.js';
+
+import { Color } from '../core/color.js';
 
 // Re-export diff types for convenience
 export type { CellPatch, RowPatch } from './cell.js';
@@ -105,6 +108,31 @@ export class Buffer {
   getCells(): Cell[] {
     return this.cells;
   }
+
+  /**
+   * Returns a deep copy of the cells array. Each cell is cloned.
+   * Use this when you need a snapshot that won't be affected by future mutations.
+   */
+  getDeepCopiedCells(): Cell[] {
+    return this.cells.map(cell => cell === EMPTY_CELL ? EMPTY_CELL : cloneCell(cell));
+  }
+
+  /**
+   * Deep-copy all cells from this buffer to the target buffer.
+   * Target must have the same dimensions. Cells are cloned (not shared by reference).
+   */
+  copyTo(target: Buffer): void {
+    if (target.width !== this.width || target.height !== this.height) {
+      target.resize(this.width, this.height);
+    }
+    const len = this.width * this.height;
+    const srcCells = this.cells;
+    const dstCells = target.cells;
+    for (let i = 0; i < len; i++) {
+      const cell = srcCells[i]!;
+      dstCells[i] = cell === EMPTY_CELL ? EMPTY_CELL : cloneCell(cell);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -121,6 +149,12 @@ export class ScreenBuffer {
   cursorPosition: { x: number; y: number } | null;
   cursorVisible: boolean;
   cursorShape: number; // 0-6 DECSCUSR
+  /** Default background color used by Renderer when cell has no bg. */
+  defaultBg?: Color;
+  /** Default foreground color used by Renderer when cell has no fg. */
+  defaultFg?: Color;
+  /** Mapping from 256-color indices to RGB values, used for alpha blending with ansi256 colors. */
+  indexRgbMapping?: Map<number, Color>;
 
   constructor(width: number = 80, height: number = 24) {
     this.width = width;
@@ -235,6 +269,23 @@ export class ScreenBuffer {
   /** Force full redraw on next getDiff(). */
   markForRefresh(): void {
     this.needsFullRefresh = true;
+  }
+
+  /**
+   * Set default foreground and/or background colors.
+   * These are used by the Renderer when a cell has no explicit fg/bg color.
+   */
+  setDefaultColors(bg?: Color, fg?: Color): void {
+    this.defaultBg = bg;
+    this.defaultFg = fg;
+  }
+
+  /**
+   * Set the index-to-RGB mapping table for 256-color indices.
+   * Used when doing alpha blending with ansi256 colors — need RGB values to do the blend math.
+   */
+  setIndexRgbMapping(mapping: Map<number, Color>): void {
+    this.indexRgbMapping = mapping;
   }
 
   // --- Cursor ---

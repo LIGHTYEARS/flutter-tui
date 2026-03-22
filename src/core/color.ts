@@ -93,10 +93,13 @@ export class Color {
    * For rgb: (r << 16 | g << 8 | b)
    */
   readonly value: number;
+  /** Alpha channel: 0.0 (fully transparent) to 1.0 (fully opaque). Default 1.0. */
+  readonly alpha: number;
 
-  private constructor(mode: ColorMode, value: number) {
+  private constructor(mode: ColorMode, value: number, alpha: number = 1.0) {
     this.mode = mode;
     this.value = value;
+    this.alpha = Math.max(0, Math.min(1, alpha));
   }
 
   // --- Named color constants (0-15) ---
@@ -246,20 +249,54 @@ export class Color {
     }
   }
 
+  /**
+   * Returns a new Color with the specified alpha, preserving mode and value.
+   */
+  withAlpha(alpha: number): Color {
+    return new Color(this.mode, this.value, alpha);
+  }
+
   equals(other: Color): boolean {
-    return this.mode === other.mode && this.value === other.value;
+    return this.mode === other.mode && this.value === other.value && this.alpha === other.alpha;
   }
 
   toString(): string {
+    const alphaSuffix = this.alpha < 1.0 ? `,a=${this.alpha.toFixed(2)}` : '';
     switch (this.mode) {
       case 'named': {
-        if (this.value === -1) return 'Color(default)';
-        return `Color(named:${this.value})`;
+        if (this.value === -1) return `Color(default${alphaSuffix})`;
+        return `Color(named:${this.value}${alphaSuffix})`;
       }
       case 'ansi256':
-        return `Color(ansi256:${this.value})`;
+        return `Color(ansi256:${this.value}${alphaSuffix})`;
       case 'rgb':
-        return `Color(rgb:${this.r},${this.g},${this.b})`;
+        return `Color(rgb:${this.r},${this.g},${this.b}${alphaSuffix})`;
     }
   }
+}
+
+/**
+ * Blend two colors using standard alpha compositing (front over back).
+ * Formula: result = front * front.alpha + back * (1 - front.alpha)
+ * Both colors are converted to RGB for blending. Result has alpha 1.0.
+ * If front alpha is 1.0, returns front as-is. If front alpha is 0.0, returns back.
+ */
+export function blendColor(front: Color, back: Color): Color {
+  const a = front.alpha;
+  if (a >= 1.0) return front;
+  if (a <= 0.0) return back;
+
+  // Convert both to RGB for blending math
+  const f = front.mode === 'rgb' ? front : front.toRgb();
+  const b = back.mode === 'rgb' ? back : back.toRgb();
+
+  // If either is defaultColor (can't convert to RGB), fall through
+  if (f.mode !== 'rgb') return front;
+  if (b.mode !== 'rgb') return front;
+
+  const r = Math.round(f.r * a + b.r * (1 - a));
+  const g = Math.round(f.g * a + b.g * (1 - a));
+  const bl = Math.round(f.b * a + b.b * (1 - a));
+
+  return Color.rgb(r, g, bl);
 }
