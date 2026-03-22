@@ -588,6 +588,32 @@ describe('attach / detach', () => {
 });
 
 // ============================================================
+// RenderBox intrinsic size base methods
+// ============================================================
+
+describe('RenderBox intrinsic size base methods', () => {
+  it('getMinIntrinsicWidth returns 0 by default', () => {
+    const box = new TestRenderBox();
+    expect(box.getMinIntrinsicWidth(100)).toBe(0);
+  });
+
+  it('getMaxIntrinsicWidth returns 0 by default', () => {
+    const box = new TestRenderBox();
+    expect(box.getMaxIntrinsicWidth(100)).toBe(0);
+  });
+
+  it('getMinIntrinsicHeight returns 0 by default', () => {
+    const box = new TestRenderBox();
+    expect(box.getMinIntrinsicHeight(100)).toBe(0);
+  });
+
+  it('getMaxIntrinsicHeight returns 0 by default', () => {
+    const box = new TestRenderBox();
+    expect(box.getMaxIntrinsicHeight(100)).toBe(0);
+  });
+});
+
+// ============================================================
 // RenderBox layout edge cases
 // ============================================================
 

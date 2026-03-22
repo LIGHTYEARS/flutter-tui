@@ -269,6 +269,50 @@ export abstract class RenderBox extends RenderObject {
     this.performLayout();
   }
 
+  // --- Intrinsic Size ---
+
+  /**
+   * Returns the minimum width that this box could be without failing to
+   * correctly paint its contents within itself, at the given height.
+   * Base implementation returns 0. Subclasses override.
+   *
+   * Amp ref: j9.getMinIntrinsicWidth(height)
+   */
+  getMinIntrinsicWidth(_height: number): number {
+    return 0;
+  }
+
+  /**
+   * Returns the smallest width beyond which increasing the width never
+   * decreases the preferred height. Base implementation returns 0.
+   *
+   * Amp ref: j9.getMaxIntrinsicWidth(height)
+   */
+  getMaxIntrinsicWidth(_height: number): number {
+    return 0;
+  }
+
+  /**
+   * Returns the minimum height that this box could be without failing to
+   * correctly paint its contents within itself, at the given width.
+   * Base implementation returns 0. Subclasses override.
+   *
+   * Amp ref: j9.getMinIntrinsicHeight(width)
+   */
+  getMinIntrinsicHeight(_width: number): number {
+    return 0;
+  }
+
+  /**
+   * Returns the smallest height beyond which increasing the height never
+   * decreases the preferred width. Base implementation returns 0.
+   *
+   * Amp ref: j9.getMaxIntrinsicHeight(width)
+   */
+  getMaxIntrinsicHeight(_width: number): number {
+    return 0;
+  }
+
   /**
    * Subclasses override this to compute size and layout children.
    * Must set this.size = ...

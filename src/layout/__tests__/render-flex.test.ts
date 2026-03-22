@@ -641,6 +641,226 @@ describe('RenderFlex property changes', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Intrinsic size helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * A RenderBox with known intrinsic sizes for testing.
+ */
+class IntrinsicSizeBox extends RenderBox {
+  private _minW: number;
+  private _maxW: number;
+  private _minH: number;
+  private _maxH: number;
+
+  constructor(minW: number, maxW: number, minH: number, maxH: number) {
+    super();
+    this._minW = minW;
+    this._maxW = maxW;
+    this._minH = minH;
+    this._maxH = maxH;
+  }
+
+  getMinIntrinsicWidth(_height: number): number { return this._minW; }
+  getMaxIntrinsicWidth(_height: number): number { return this._maxW; }
+  getMinIntrinsicHeight(_width: number): number { return this._minH; }
+  getMaxIntrinsicHeight(_width: number): number { return this._maxH; }
+
+  performLayout(): void {
+    this.size = this.constraints!.constrain(new Size(this._maxW, this._maxH));
+  }
+  paint(_context: PaintContext, _offset: Offset): void {}
+}
+
+// ---------------------------------------------------------------------------
+// Intrinsic sizes — Horizontal (Row)
+// ---------------------------------------------------------------------------
+
+describe('RenderFlex intrinsic sizes (horizontal)', () => {
+  test('minIntrinsicWidth = sum of children minIntrinsicWidth', () => {
+    const flex = new RenderFlex({ direction: 'horizontal' });
+    const c1 = new IntrinsicSizeBox(10, 20, 5, 10);
+    const c2 = new IntrinsicSizeBox(15, 30, 8, 12);
+    addChild(flex, c1);
+    addChild(flex, c2);
+
+    expect(flex.getMinIntrinsicWidth(100)).toBe(25); // 10 + 15
+  });
+
+  test('maxIntrinsicWidth = sum of children maxIntrinsicWidth', () => {
+    const flex = new RenderFlex({ direction: 'horizontal' });
+    const c1 = new IntrinsicSizeBox(10, 20, 5, 10);
+    const c2 = new IntrinsicSizeBox(15, 30, 8, 12);
+    addChild(flex, c1);
+    addChild(flex, c2);
+
+    expect(flex.getMaxIntrinsicWidth(100)).toBe(50); // 20 + 30
+  });
+
+  test('minIntrinsicHeight = max of children minIntrinsicHeight', () => {
+    const flex = new RenderFlex({ direction: 'horizontal' });
+    const c1 = new IntrinsicSizeBox(10, 20, 5, 10);
+    const c2 = new IntrinsicSizeBox(15, 30, 8, 12);
+    addChild(flex, c1);
+    addChild(flex, c2);
+
+    expect(flex.getMinIntrinsicHeight(100)).toBe(8); // max(5, 8)
+  });
+
+  test('maxIntrinsicHeight = max of children maxIntrinsicHeight', () => {
+    const flex = new RenderFlex({ direction: 'horizontal' });
+    const c1 = new IntrinsicSizeBox(10, 20, 5, 10);
+    const c2 = new IntrinsicSizeBox(15, 30, 8, 12);
+    addChild(flex, c1);
+    addChild(flex, c2);
+
+    expect(flex.getMaxIntrinsicHeight(100)).toBe(12); // max(10, 12)
+  });
+
+  test('flex children contribute 0 to minIntrinsicWidth', () => {
+    const flex = new RenderFlex({ direction: 'horizontal' });
+    const nonFlex = new IntrinsicSizeBox(10, 20, 5, 10);
+    const flexChild = new IntrinsicSizeBox(15, 30, 8, 12);
+    addChild(flex, nonFlex);
+    addChild(flex, flexChild, 1);
+
+    // Flex child contributes 0 to min
+    expect(flex.getMinIntrinsicWidth(100)).toBe(10); // only nonFlex
+  });
+
+  test('flex children contribute to maxIntrinsicWidth', () => {
+    const flex = new RenderFlex({ direction: 'horizontal' });
+    const nonFlex = new IntrinsicSizeBox(10, 20, 5, 10);
+    const flexChild = new IntrinsicSizeBox(15, 30, 8, 12);
+    addChild(flex, nonFlex);
+    addChild(flex, flexChild, 1);
+
+    // All children contribute to max
+    expect(flex.getMaxIntrinsicWidth(100)).toBe(50); // 20 + 30
+  });
+
+  test('empty flex returns 0 for all intrinsic sizes', () => {
+    const flex = new RenderFlex({ direction: 'horizontal' });
+    expect(flex.getMinIntrinsicWidth(100)).toBe(0);
+    expect(flex.getMaxIntrinsicWidth(100)).toBe(0);
+    expect(flex.getMinIntrinsicHeight(100)).toBe(0);
+    expect(flex.getMaxIntrinsicHeight(100)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Intrinsic sizes — Vertical (Column)
+// ---------------------------------------------------------------------------
+
+describe('RenderFlex intrinsic sizes (vertical)', () => {
+  test('minIntrinsicWidth = max of children minIntrinsicWidth', () => {
+    const flex = new RenderFlex({ direction: 'vertical' });
+    const c1 = new IntrinsicSizeBox(10, 20, 5, 10);
+    const c2 = new IntrinsicSizeBox(15, 30, 8, 12);
+    addChild(flex, c1);
+    addChild(flex, c2);
+
+    expect(flex.getMinIntrinsicWidth(100)).toBe(15); // max(10, 15)
+  });
+
+  test('maxIntrinsicWidth = max of children maxIntrinsicWidth', () => {
+    const flex = new RenderFlex({ direction: 'vertical' });
+    const c1 = new IntrinsicSizeBox(10, 20, 5, 10);
+    const c2 = new IntrinsicSizeBox(15, 30, 8, 12);
+    addChild(flex, c1);
+    addChild(flex, c2);
+
+    expect(flex.getMaxIntrinsicWidth(100)).toBe(30); // max(20, 30)
+  });
+
+  test('minIntrinsicHeight = sum of children minIntrinsicHeight', () => {
+    const flex = new RenderFlex({ direction: 'vertical' });
+    const c1 = new IntrinsicSizeBox(10, 20, 5, 10);
+    const c2 = new IntrinsicSizeBox(15, 30, 8, 12);
+    addChild(flex, c1);
+    addChild(flex, c2);
+
+    expect(flex.getMinIntrinsicHeight(100)).toBe(13); // 5 + 8
+  });
+
+  test('maxIntrinsicHeight = sum of children maxIntrinsicHeight', () => {
+    const flex = new RenderFlex({ direction: 'vertical' });
+    const c1 = new IntrinsicSizeBox(10, 20, 5, 10);
+    const c2 = new IntrinsicSizeBox(15, 30, 8, 12);
+    addChild(flex, c1);
+    addChild(flex, c2);
+
+    expect(flex.getMaxIntrinsicHeight(100)).toBe(22); // 10 + 12
+  });
+
+  test('flex children contribute 0 to minIntrinsicHeight', () => {
+    const flex = new RenderFlex({ direction: 'vertical' });
+    const nonFlex = new IntrinsicSizeBox(10, 20, 5, 10);
+    const flexChild = new IntrinsicSizeBox(15, 30, 8, 12);
+    addChild(flex, nonFlex);
+    addChild(flex, flexChild, 1);
+
+    // Flex child contributes 0 to min in main axis (height for vertical)
+    expect(flex.getMinIntrinsicHeight(100)).toBe(5); // only nonFlex
+  });
+
+  test('flex children contribute to maxIntrinsicHeight', () => {
+    const flex = new RenderFlex({ direction: 'vertical' });
+    const nonFlex = new IntrinsicSizeBox(10, 20, 5, 10);
+    const flexChild = new IntrinsicSizeBox(15, 30, 8, 12);
+    addChild(flex, nonFlex);
+    addChild(flex, flexChild, 1);
+
+    // All children contribute to max
+    expect(flex.getMaxIntrinsicHeight(100)).toBe(22); // 10 + 12
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CrossAxisAlignment.baseline
+// ---------------------------------------------------------------------------
+
+describe('RenderFlex CrossAxisAlignment baseline', () => {
+  test('baseline: children positioned at cross offset 0 (horizontal)', () => {
+    const flex = new RenderFlex({
+      direction: 'horizontal',
+      crossAxisAlignment: 'baseline',
+    });
+    const c1 = new FixedSizeBox(20, 5);
+    const c2 = new FixedSizeBox(20, 10);
+    addChild(flex, c1);
+    addChild(flex, c2);
+
+    flex.layout(BoxConstraints.tight(new Size(100, 20)));
+    // Both should be at cross offset 0 (TUI simplification)
+    expect(c1.offset.row).toBe(0);
+    expect(c2.offset.row).toBe(0);
+  });
+
+  test('baseline: children positioned at cross offset 0 (vertical)', () => {
+    const flex = new RenderFlex({
+      direction: 'vertical',
+      crossAxisAlignment: 'baseline',
+    });
+    const c1 = new FixedSizeBox(20, 5);
+    const c2 = new FixedSizeBox(30, 10);
+    addChild(flex, c1);
+    addChild(flex, c2);
+
+    flex.layout(BoxConstraints.tight(new Size(80, 40)));
+    // Both should be at cross offset 0 (col=0 for vertical flex)
+    expect(c1.offset.col).toBe(0);
+    expect(c2.offset.col).toBe(0);
+  });
+
+  test('baseline type is assignable to crossAxisAlignment', () => {
+    const flex = new RenderFlex();
+    flex.crossAxisAlignment = 'baseline';
+    expect(flex.crossAxisAlignment).toBe('baseline');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Edge cases
 // ---------------------------------------------------------------------------
 

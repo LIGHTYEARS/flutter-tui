@@ -26,7 +26,7 @@ export type MainAxisAlignment =
   | 'spaceAround'
   | 'spaceEvenly';
 
-export type CrossAxisAlignment = 'start' | 'end' | 'center' | 'stretch';
+export type CrossAxisAlignment = 'start' | 'end' | 'center' | 'stretch' | 'baseline';
 
 export type MainAxisSize = 'min' | 'max';
 
@@ -109,6 +109,112 @@ export class RenderFlex extends ContainerRenderBox {
     if (this._mainAxisSize !== value) {
       this._mainAxisSize = value;
       this.markNeedsLayout();
+    }
+  }
+
+  // --- Intrinsic Sizes ---
+  // Amp ref: oU0 intrinsic dimension methods
+  // For horizontal (Row): main=width, cross=height
+  // For vertical (Column): main=height, cross=width
+  // Flexible children contribute 0 to min intrinsic main axis size.
+
+  /**
+   * Returns the minimum intrinsic width.
+   * Horizontal: sum of children's minIntrinsicWidth (flex children contribute 0)
+   * Vertical: max of children's minIntrinsicWidth
+   */
+  getMinIntrinsicWidth(height: number): number {
+    if (this._direction === 'horizontal') {
+      // Sum of children's minIntrinsicWidth; flex children contribute 0
+      let total = 0;
+      for (const child of this.children) {
+        const pd = child.parentData as FlexParentData;
+        if (pd.flex > 0) continue; // flex children contribute 0 to min
+        total += child.getMinIntrinsicWidth(height);
+      }
+      return total;
+    } else {
+      // Vertical: max of children's minIntrinsicWidth
+      let maxVal = 0;
+      for (const child of this.children) {
+        const val = child.getMinIntrinsicWidth(height);
+        if (val > maxVal) maxVal = val;
+      }
+      return maxVal;
+    }
+  }
+
+  /**
+   * Returns the maximum intrinsic width.
+   * Horizontal: sum of children's maxIntrinsicWidth
+   * Vertical: max of children's maxIntrinsicWidth
+   */
+  getMaxIntrinsicWidth(height: number): number {
+    if (this._direction === 'horizontal') {
+      // Sum of all children's maxIntrinsicWidth
+      let total = 0;
+      for (const child of this.children) {
+        total += child.getMaxIntrinsicWidth(height);
+      }
+      return total;
+    } else {
+      // Vertical: max of children's maxIntrinsicWidth
+      let maxVal = 0;
+      for (const child of this.children) {
+        const val = child.getMaxIntrinsicWidth(height);
+        if (val > maxVal) maxVal = val;
+      }
+      return maxVal;
+    }
+  }
+
+  /**
+   * Returns the minimum intrinsic height.
+   * Horizontal: max of children's minIntrinsicHeight
+   * Vertical: sum of children's minIntrinsicHeight (flex children contribute 0)
+   */
+  getMinIntrinsicHeight(width: number): number {
+    if (this._direction === 'horizontal') {
+      // Horizontal: max of children's minIntrinsicHeight
+      let maxVal = 0;
+      for (const child of this.children) {
+        const val = child.getMinIntrinsicHeight(width);
+        if (val > maxVal) maxVal = val;
+      }
+      return maxVal;
+    } else {
+      // Vertical: sum of children's minIntrinsicHeight; flex children contribute 0
+      let total = 0;
+      for (const child of this.children) {
+        const pd = child.parentData as FlexParentData;
+        if (pd.flex > 0) continue; // flex children contribute 0 to min
+        total += child.getMinIntrinsicHeight(width);
+      }
+      return total;
+    }
+  }
+
+  /**
+   * Returns the maximum intrinsic height.
+   * Horizontal: max of children's maxIntrinsicHeight
+   * Vertical: sum of children's maxIntrinsicHeight
+   */
+  getMaxIntrinsicHeight(width: number): number {
+    if (this._direction === 'horizontal') {
+      // Horizontal: max of children's maxIntrinsicHeight
+      let maxVal = 0;
+      for (const child of this.children) {
+        const val = child.getMaxIntrinsicHeight(width);
+        if (val > maxVal) maxVal = val;
+      }
+      return maxVal;
+    } else {
+      // Vertical: sum of all children's maxIntrinsicHeight
+      let total = 0;
+      for (const child of this.children) {
+        total += child.getMaxIntrinsicHeight(width);
+      }
+      return total;
     }
   }
 
@@ -390,6 +496,11 @@ export class RenderFlex extends ContainerRenderBox {
           crossOffset = actualCrossSize - childCrossSize;
           break;
         case 'stretch':
+          crossOffset = 0;
+          break;
+        case 'baseline':
+          // TUI simplification: characters sit on the same baseline by default
+          // in terminal cells, so baseline alignment positions children at 0
           crossOffset = 0;
           break;
       }
