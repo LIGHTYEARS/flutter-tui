@@ -11,3 +11,7 @@ export type { TextSpanHyperlink } from './core/text-span';
 export { wcwidth, stringWidth } from './core/wcwidth';
 export { BoxConstraints } from './core/box-constraints';
 export { Key, ValueKey, UniqueKey, GlobalKey } from './core/key';
+
+// Phase 10: Infrastructure Layer
+export { MediaQueryData, MediaQuery } from './widgets/media-query';
+export type { TerminalCapabilities } from './widgets/media-query';
