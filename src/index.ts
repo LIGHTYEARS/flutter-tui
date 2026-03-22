@@ -22,3 +22,6 @@ export { HoverContext } from './widgets/hover-context';
 // Phase 12: Core Missing Widgets
 export { FocusScope } from './widgets/focus-scope';
 export { ClipRect, RenderClipRect } from './widgets/clip-rect';
+export { Scrollbar, RenderScrollbar } from './widgets/scrollbar';
+export type { ScrollInfo } from './widgets/scrollbar';
+export { IntrinsicHeight, RenderIntrinsicHeight } from './widgets/intrinsic-height';
