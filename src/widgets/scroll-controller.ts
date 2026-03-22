@@ -13,6 +13,9 @@ export class ScrollController {
   private _listeners: Set<() => void> = new Set();
   private _followMode: boolean = true;
 
+  /** Timer handle for the current animateTo animation, or null if idle. */
+  private _animationTimer: ReturnType<typeof setInterval> | null = null;
+
   /** Current scroll offset in the main axis. */
   get offset(): number {
     return this._offset;
@@ -33,14 +36,78 @@ export class ScrollController {
     return this._followMode;
   }
 
+  /** Whether a smooth scroll animation is currently in progress. */
+  get isAnimating(): boolean {
+    return this._animationTimer !== null;
+  }
+
+  /**
+   * Smoothly animate from current offset to targetOffset using linear interpolation.
+   * Cancels any existing animation. Clamps target to [0, maxScrollExtent].
+   * Notifies listeners on each frame.
+   *
+   * @param targetOffset - The desired scroll offset
+   * @param duration - Animation duration in ms (default 200)
+   */
+  animateTo(targetOffset: number, duration: number = 200): void {
+    // Cancel any running animation
+    this._cancelAnimation();
+
+    // Clamp target to valid range
+    const clampedTarget = Math.max(0, Math.min(targetOffset, this._maxScrollExtent));
+
+    // If already at target, nothing to do
+    if (clampedTarget === this._offset) {
+      return;
+    }
+
+    // For zero or negative duration, jump immediately
+    if (duration <= 0) {
+      this.jumpTo(clampedTarget);
+      return;
+    }
+
+    const startOffset = this._offset;
+    const delta = clampedTarget - startOffset;
+    const frameInterval = 16; // ~60fps
+    const startTime = Date.now();
+
+    this._animationTimer = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Linear interpolation
+      const newOffset = startOffset + delta * progress;
+
+      // Update offset (bypass jumpTo to avoid followMode re-enable during animation)
+      const clamped = Math.max(0, Math.min(newOffset, this._maxScrollExtent));
+      if (clamped !== this._offset) {
+        this._offset = clamped;
+        this._notifyListeners();
+      }
+
+      // Animation complete
+      if (progress >= 1) {
+        this._cancelAnimation();
+      }
+    }, frameInterval);
+  }
+
   /**
    * Jump to a specific offset, clamped to [0, maxScrollExtent].
    * Notifies all listeners if the offset changes.
+   * Re-enables followMode if scrolled to bottom.
    */
   jumpTo(offset: number): void {
     const clamped = Math.max(0, Math.min(offset, this._maxScrollExtent));
     if (clamped !== this._offset) {
       this._offset = clamped;
+
+      // Re-enable follow mode when user scrolls to bottom
+      if (!this._followMode && this.atBottom) {
+        this._followMode = true;
+      }
+
       this._notifyListeners();
     }
   }
@@ -94,9 +161,18 @@ export class ScrollController {
     this._listeners.delete(fn);
   }
 
-  /** Remove all listeners and reset state. */
+  /** Remove all listeners, cancel animations, and reset state. */
   dispose(): void {
+    this._cancelAnimation();
     this._listeners.clear();
+  }
+
+  /** Cancel the current animation if one is running. */
+  private _cancelAnimation(): void {
+    if (this._animationTimer !== null) {
+      clearInterval(this._animationTimer);
+      this._animationTimer = null;
+    }
   }
 
   private _notifyListeners(): void {
