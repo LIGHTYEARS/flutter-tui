@@ -25,3 +25,9 @@ export { ClipRect, RenderClipRect } from './widgets/clip-rect';
 export { Scrollbar, RenderScrollbar } from './widgets/scrollbar';
 export type { ScrollInfo } from './widgets/scrollbar';
 export { IntrinsicHeight, RenderIntrinsicHeight } from './widgets/intrinsic-height';
+
+// Phase 13: Advanced Widgets
+export { Dialog } from './widgets/dialog';
+export type { DialogType, FooterStyle, DialogButton, DialogDimensions } from './widgets/dialog';
+export { SelectionList, SelectionListState } from './widgets/selection-list';
+export type { SelectionItem } from './widgets/selection-list';
