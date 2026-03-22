@@ -53,41 +53,41 @@ All v1.0 requirements shipped. See MILESTONES.md for details.
 - [x] **DIAG-01** through **DIAG-03**: Complete diagnostics
 - [x] **EXMP-01** through **EXMP-08**: 28 example applications shipped
 
-## v1.1 Requirements
+## v1.1 Requirements (Complete)
 
-Requirements for Amp CLI feature parity. Each maps to roadmap phases 9+.
+All v1.1 requirements shipped. See MILESTONES.md for details.
 
 ### Infrastructure InheritedWidgets (INFRA)
 
-- [ ] **INFRA-01**: MediaQuery InheritedWidget providing MediaQueryData (screen size, terminal capabilities) — wraps root widget in runApp (Amp: Q3)
-- [ ] **INFRA-02**: MediaQueryData class with size (width/height) and capabilities fields (Amp: nA)
-- [ ] **INFRA-03**: Theme InheritedWidget providing color scheme (primary, background, text, success, destructive, etc.) — used by DiffView, Button, RenderText (Amp: w3)
-- [ ] **INFRA-04**: HoverContext InheritedWidget for propagating mouse hover state to descendants (Amp: J_)
+- [x] **INFRA-01**: MediaQuery InheritedWidget providing MediaQueryData (screen size, terminal capabilities) — wraps root widget in runApp (Amp: Q3)
+- [x] **INFRA-02**: MediaQueryData class with size (width/height) and capabilities fields (Amp: nA)
+- [x] **INFRA-03**: Theme InheritedWidget providing color scheme (primary, background, text, success, destructive, etc.) — used by DiffView, Button, RenderText (Amp: w3)
+- [x] **INFRA-04**: HoverContext InheritedWidget for propagating mouse hover state to descendants (Amp: J_)
 
 ### Missing Widgets (MWDG)
 
-- [ ] **MWDG-01**: FocusScope/KeyboardListener StatefulWidget wrapping FocusNode — autofocus, onKey, onPaste, onFocusChange, canRequestFocus, skipTraversal (Amp: t4)
+- [x] **MWDG-01**: FocusScope/KeyboardListener StatefulWidget wrapping FocusNode — autofocus, onKey, onPaste, onFocusChange, canRequestFocus, skipTraversal (Amp: t4)
 - [x] **MWDG-02**: Scrollbar StatefulWidget with thumb/track rendering, thickness, colors, characters, paired with ScrollController (Amp: ia)
-- [ ] **MWDG-03**: SelectionList StatefulWidget — interactive selection dialog with keyboard navigation (arrows/j/k/Tab), Enter confirm, Escape dismiss, mouse click, disabled item skip (Amp: ap)
-- [ ] **MWDG-04**: Dialog data class — title, type, widget, footerStyle, dimensions (Amp: ab)
-- [ ] **MWDG-05**: DiffView StatelessWidget — unified diff parsing, +/- line coloring, line numbers, syntax highlighting via Theme (Amp: Bn)
-- [ ] **MWDG-06**: ClipRect SingleChildRenderObjectWidget — clips child painting to parent bounds (Amp: nv)
+- [x] **MWDG-03**: SelectionList StatefulWidget — interactive selection dialog with keyboard navigation (arrows/j/k/Tab), Enter confirm, Escape dismiss, mouse click, disabled item skip (Amp: ap)
+- [x] **MWDG-04**: Dialog data class — title, type, widget, footerStyle, dimensions (Amp: ab)
+- [x] **MWDG-05**: DiffView StatelessWidget — unified diff parsing, +/- line coloring, line numbers, syntax highlighting via Theme (Amp: Bn)
+- [x] **MWDG-06**: ClipRect SingleChildRenderObjectWidget — clips child painting to parent bounds (Amp: nv)
 - [x] **MWDG-07**: IntrinsicHeight SingleChildRenderObjectWidget with RenderIntrinsicHeight — queries child getMaxIntrinsicHeight and applies tight constraint (Amp: hJ/vU0)
-- [ ] **MWDG-08**: Markdown StatelessWidget — parses markdown text, renders as styled Text tree (headings, code, links via OSC 8) (Amp: _g)
+- [x] **MWDG-08**: Markdown StatelessWidget — parses markdown text, renders as styled Text tree (headings, code, links via OSC 8) (Amp: _g)
 - [x] **MWDG-09**: ContainerWithOverlays — extends Container with edge/corner overlay positioning using Stack+Positioned internally (Amp: bt)
 
 ### Framework Enhancements (FRMW)
 
-- [ ] **FRMW-12**: WidgetsBinding.mouseManager — global MouseManager singleton reference (Amp: Pg in J3)
-- [ ] **FRMW-13**: WidgetsBinding.eventCallbacks — keyboard, mouse, paste event global callback lists (Amp: J3)
-- [ ] **FRMW-14**: WidgetsBinding.keyInterceptors — keyboard event interceptor chain, priority over focus system (Amp: J3)
-- [ ] **FRMW-15**: Async runApp with terminal capability detection, MediaQuery wrapping of root widget, lazy focus/idle loading (Amp: cz8)
-- [ ] **FRMW-16**: BuildContext.mediaQuery field for fast MediaQueryData access (Amp: jd.mediaQuery)
+- [x] **FRMW-12**: WidgetsBinding.mouseManager — global MouseManager singleton reference (Amp: Pg in J3)
+- [x] **FRMW-13**: WidgetsBinding.eventCallbacks — keyboard, mouse, paste event global callback lists (Amp: J3)
+- [x] **FRMW-14**: WidgetsBinding.keyInterceptors — keyboard event interceptor chain, priority over focus system (Amp: J3)
+- [x] **FRMW-15**: Async runApp with terminal capability detection, MediaQuery wrapping of root widget, lazy focus/idle loading (Amp: cz8)
+- [x] **FRMW-16**: BuildContext.mediaQuery field for fast MediaQueryData access (Amp: jd.mediaQuery)
 
 ### Text API Enhancements (TEXT)
 
-- [ ] **TEXT-01**: TextStyle.copyWith() for partial-override new instance creation (Amp: m0.copyWith)
-- [ ] **TEXT-02**: TextStyle static factories — normal(color), bold(color), italic(color), underline(color), colored(color), background(color) (Amp: m0 static methods)
+- [x] **TEXT-01**: TextStyle.copyWith() for partial-override new instance creation (Amp: m0.copyWith)
+- [x] **TEXT-02**: TextStyle static factories — normal(color), bold(color), italic(color), underline(color), colored(color), background(color) (Amp: m0 static methods)
 - [x] **TEXT-03**: TextSpan.hyperlink property — { uri: string, id?: string } for OSC 8 terminal hyperlinks (Amp: TextSpan hyperlink)
 - [x] **TEXT-04**: TextSpan.onClick callback property for click handling (Amp: TextSpan onClick)
 - [x] **TEXT-05**: TextSpan.equals() deep structural comparison (Amp: TextSpan equality)
@@ -98,9 +98,9 @@ Requirements for Amp CLI feature parity. Each maps to roadmap phases 9+.
 - [x] **ROBJ-02**: RenderText character position tracking — _characterPositions[], _visualLines[] cache, getCharacterRect(index), getOffsetForPosition(x,y) (Amp: gU0)
 - [x] **ROBJ-03**: RenderText hyperlink/click handling — getHyperlinkAtPosition(), getOnClickAtPosition(), handleMouseEvent() with cursor changes (Amp: gU0)
 - [x] **ROBJ-04**: RenderText emoji width detection — _emojiWidthSupported flag from MediaQuery capabilities (Amp: gU0)
-- [ ] **ROBJ-05**: RenderFlex intrinsic size methods — getMinIntrinsicWidth(h), getMaxIntrinsicWidth(h), getMinIntrinsicHeight(w), getMaxIntrinsicHeight(w) (Amp: oU0)
-- [ ] **ROBJ-06**: RenderFlex CrossAxisAlignment.baseline variant (Amp: oU0)
-- [ ] **ROBJ-07**: ClipCanvas paint wrapper — clips painting area for scroll viewports (Amp: E$)
+- [x] **ROBJ-05**: RenderFlex intrinsic size methods — getMinIntrinsicWidth(h), getMaxIntrinsicWidth(h), getMinIntrinsicHeight(w), getMaxIntrinsicHeight(w) (Amp: oU0)
+- [x] **ROBJ-06**: RenderFlex CrossAxisAlignment.baseline variant (Amp: oU0)
+- [x] **ROBJ-07**: ClipCanvas paint wrapper — clips painting area for scroll viewports (Amp: E$)
 
 ### Mouse/Cursor System (MOUS)
 
@@ -111,9 +111,9 @@ Requirements for Amp CLI feature parity. Each maps to roadmap phases 9+.
 
 ### ScrollController Enhancements (SCRL)
 
-- [ ] **SCRL-01**: ScrollController.animateTo(offset) with timer-based smooth scrolling animation (Amp: Lg.animateTo)
-- [ ] **SCRL-02**: ScrollController.followMode — auto-scroll to bottom when content grows, with disableFollowMode() (Amp: Lg.followMode)
-- [ ] **SCRL-03**: ScrollController.atBottom getter — check if scrolled to end (Amp: Lg.atBottom)
+- [x] **SCRL-01**: ScrollController.animateTo(offset) with timer-based smooth scrolling animation (Amp: Lg.animateTo)
+- [x] **SCRL-02**: ScrollController.followMode — auto-scroll to bottom when content grows, with disableFollowMode() (Amp: Lg.followMode)
+- [x] **SCRL-03**: ScrollController.atBottom getter — check if scrolled to end (Amp: Lg.atBottom)
 
 ### Debug Tools (DBUG)
 
@@ -125,59 +125,59 @@ Requirements for Amp CLI deep fidelity — rendering pipeline, terminal protocol
 
 ### Image Protocol (IMG)
 
-- [ ] **IMG-01**: ImagePreview StatefulWidget (`O_`) — displays inline images in terminal using Kitty graphics protocol. Transmits PNG data via `ESC_G` escape sequences with chunked transfer and placement cells. Falls back to empty SizedBox if terminal lacks Kitty support.
-- [ ] **IMG-02**: KittyImageWidget SingleChildRenderObjectWidget (`IH0`) — render object for Kitty image display with cell placement and sizing.
-- [ ] **IMG-03**: ImagePreviewProvider InheritedWidget (`X_`) — provides image preview context (image data, display state) to descendant widgets.
+- [x] **IMG-01**: ImagePreview StatefulWidget (`O_`) — displays inline images in terminal using Kitty graphics protocol. Transmits PNG data via `ESC_G` escape sequences with chunked transfer and placement cells. Falls back to empty SizedBox if terminal lacks Kitty support.
+- [x] **IMG-02**: KittyImageWidget SingleChildRenderObjectWidget (`IH0`) — render object for Kitty image display with cell placement and sizing.
+- [x] **IMG-03**: ImagePreviewProvider InheritedWidget (`X_`) — provides image preview context (image data, display state) to descendant widgets.
 
 ### AppTheme System (ATHM)
 
-- [ ] **ATHM-01**: AppTheme InheritedWidget (`h8`) — distinct from Theme (`w3`), provides application-specific theme data including `syntaxHighlight` config, `app` config, and `colors`. Accessed via `AppTheme.of(context)`.
-- [ ] **ATHM-02**: Syntax highlighting function (`ae`) — `syntaxHighlight(content, config, filePath)` performs file-extension-based syntax highlighting. Used by DiffView for colorized diff content.
+- [x] **ATHM-01**: AppTheme InheritedWidget (`h8`) — distinct from Theme (`w3`), provides application-specific theme data including `syntaxHighlight` config, `app` config, and `colors`. Accessed via `AppTheme.of(context)`.
+- [x] **ATHM-02**: Syntax highlighting function (`ae`) — `syntaxHighlight(content, config, filePath)` performs file-extension-based syntax highlighting. Used by DiffView for colorized diff content.
 
 ### TextField Enhancements (TXFD)
 
-- [ ] **TXFD-01**: Multi-line editing support with `maxLines` property. Single-line: Enter submits. Multi-line: Ctrl+Enter submits, Enter inserts newline. Shift+Enter / Alt+Enter / Backslash+Enter for newline insertion.
-- [ ] **TXFD-02**: Word-level operations — delete word (Ctrl+Backspace/Ctrl+Delete), move by word (Ctrl+Left/Ctrl+Right), select word (Ctrl+Shift+Left/Right).
-- [ ] **TXFD-03**: Mouse interaction — click to place cursor, double-click to select word, click-and-drag for character/word selection. Global mouse release tracking via `MouseManager.addGlobalReleaseCallback`.
-- [ ] **TXFD-04**: Selection and clipboard — auto-copy selection to clipboard (500ms delay, 300ms highlight). Visual selection highlight using TextStyle background overlay.
-- [ ] **TXFD-05**: Render via RenderText — TextField should use Text/RenderText underneath (not a stub display widget) for consistent text rendering, CJK support, and hyperlink passthrough.
+- [x] **TXFD-01**: Multi-line editing support with `maxLines` property. Single-line: Enter submits. Multi-line: Ctrl+Enter submits, Enter inserts newline. Shift+Enter / Alt+Enter / Backslash+Enter for newline insertion.
+- [x] **TXFD-02**: Word-level operations — delete word (Ctrl+Backspace/Ctrl+Delete), move by word (Ctrl+Left/Ctrl+Right), select word (Ctrl+Shift+Left/Right).
+- [x] **TXFD-03**: Mouse interaction — click to place cursor, double-click to select word, click-and-drag for character/word selection. Global mouse release tracking via `MouseManager.addGlobalReleaseCallback`.
+- [x] **TXFD-04**: Selection and clipboard — auto-copy selection to clipboard (500ms delay, 300ms highlight). Visual selection highlight using TextStyle background overlay.
+- [x] **TXFD-05**: Render via RenderText — TextField should use Text/RenderText underneath (not a stub display widget) for consistent text rendering, CJK support, and hyperlink passthrough.
 
 ### Rendering Pipeline (RPIP)
 
-- [ ] **RPIP-01**: Alpha compositing / style blending (`aF8`) — Color class supports alpha channel. `Buffer.setCell()` blends styles when alpha < 1. `blendColor(front, back)` and `blendStyle(front, back)` functions.
-- [ ] **RPIP-02**: RGB to 256-color fallback (`sJ`) — nearest-match function using 240-entry palette (216 cube + 24 grayscale) with Euclidean distance and result caching. Used when `capabilities.canRgb` is false.
-- [ ] **RPIP-03**: ScreenBuffer default colors — `setDefaultColors(bg, fg)` sets default background/foreground for both buffers. Buffer stores `defaultBg`, `defaultFg`.
-- [ ] **RPIP-04**: Index-to-RGB mapping — `setIndexRgbMapping(mapping)` provides lookup table for 256-color indices to RGB values (used in alpha blending).
-- [ ] **RPIP-05**: Buffer `copyTo(target)` method — deep copy cells from one buffer to another.
+- [x] **RPIP-01**: Alpha compositing / style blending (`aF8`) — Color class supports alpha channel. `Buffer.setCell()` blends styles when alpha < 1. `blendColor(front, back)` and `blendStyle(front, back)` functions.
+- [x] **RPIP-02**: RGB to 256-color fallback (`sJ`) — nearest-match function using 240-entry palette (216 cube + 24 grayscale) with Euclidean distance and result caching. Used when `capabilities.canRgb` is false.
+- [x] **RPIP-03**: ScreenBuffer default colors — `setDefaultColors(bg, fg)` sets default background/foreground for both buffers. Buffer stores `defaultBg`, `defaultFg`.
+- [x] **RPIP-04**: Index-to-RGB mapping — `setIndexRgbMapping(mapping)` provides lookup table for 256-color indices to RGB values (used in alpha blending).
+- [x] **RPIP-05**: Buffer `copyTo(target)` method — deep copy cells from one buffer to another.
 
 ### Terminal Protocol (TPRO)
 
-- [ ] **TPRO-01**: Kitty keyboard protocol — `enableKittyKeyboard()` (`ESC[>5u`) / `disableKittyKeyboard()` (`ESC[<u]`) for enhanced key event reporting.
-- [ ] **TPRO-02**: ModifyOtherKeys — `enableModifyOtherKeys()` (`ESC[>4;1m`) / `disableModifyOtherKeys()` (`ESC[>4;0m`) for disambiguating key events.
-- [ ] **TPRO-03**: Emoji width mode — `enableEmojiWidth()` (`ESC[?2027h`) / `disableEmojiWidth()` (`ESC[?2027l]`) for accurate emoji width detection.
-- [ ] **TPRO-04**: In-band resize — `enableInBandResize()` (`ESC[?2048h`) / `disableInBandResize()` (`ESC[?2048l]`) for resize event via escape sequence.
-- [ ] **TPRO-05**: Progress bar OSC — `setProgressBarIndeterminate()` (`OSC 9;4;3 ST`), `setProgressBarOff()` (`OSC 9;4;0 ST`), `setProgressBarPaused()` (`OSC 9;4;4 ST`).
-- [ ] **TPRO-06**: Window title OSC — `SET_TITLE(title)` (`ESC]0;{title}\x07`).
-- [ ] **TPRO-07**: Mouse cursor shape OSC — `SET_MOUSE_SHAPE(name)` (`ESC]22;{name} ESC\`).
-- [ ] **TPRO-08**: Pixel mouse — `enablePixelMouse()` (`ESC[?1016h`) / `disablePixelMouse()` (`ESC[?1016l`).
-- [ ] **TPRO-09**: Terminal cleanup function (`zG8`) — comprehensive cleanup on exit (SIGINT/SIGTERM/process exit) disabling all 12+ terminal modes including Kitty kbd, pixel mouse, in-band resize, emoji width, color palette notifications.
-- [ ] **TPRO-10**: Terminal capability detection via escape queries (`vF` queryParser) — send capability queries and parse responses to detect Kitty graphics, emoji width support, color depth.
+- [x] **TPRO-01**: Kitty keyboard protocol — `enableKittyKeyboard()` (`ESC[>5u`) / `disableKittyKeyboard()` (`ESC[<u]`) for enhanced key event reporting.
+- [x] **TPRO-02**: ModifyOtherKeys — `enableModifyOtherKeys()` (`ESC[>4;1m`) / `disableModifyOtherKeys()` (`ESC[>4;0m`) for disambiguating key events.
+- [x] **TPRO-03**: Emoji width mode — `enableEmojiWidth()` (`ESC[?2027h`) / `disableEmojiWidth()` (`ESC[?2027l]`) for accurate emoji width detection.
+- [x] **TPRO-04**: In-band resize — `enableInBandResize()` (`ESC[?2048h`) / `disableInBandResize()` (`ESC[?2048l]`) for resize event via escape sequence.
+- [x] **TPRO-05**: Progress bar OSC — `setProgressBarIndeterminate()` (`OSC 9;4;3 ST`), `setProgressBarOff()` (`OSC 9;4;0 ST`), `setProgressBarPaused()` (`OSC 9;4;4 ST`).
+- [x] **TPRO-06**: Window title OSC — `SET_TITLE(title)` (`ESC]0;{title}\x07`).
+- [x] **TPRO-07**: Mouse cursor shape OSC — `SET_MOUSE_SHAPE(name)` (`ESC]22;{name} ESC\`).
+- [x] **TPRO-08**: Pixel mouse — `enablePixelMouse()` (`ESC[?1016h`) / `disablePixelMouse()` (`ESC[?1016l`).
+- [x] **TPRO-09**: Terminal cleanup function (`zG8`) — comprehensive cleanup on exit (SIGINT/SIGTERM/process exit) disabling all 12+ terminal modes including Kitty kbd, pixel mouse, in-band resize, emoji width, color palette notifications.
+- [x] **TPRO-10**: Terminal capability detection via escape queries (`vF` queryParser) — send capability queries and parse responses to detect Kitty graphics, emoji width support, color depth.
 
 ### Performance Diagnostics (PERF)
 
-- [ ] **PERF-01**: PerformanceTracker additional metrics — `keyEventTimes`, `mouseEventTimes`, `repaintPercents`, `bytesWritten` with P95/P99 getters for all categories.
-- [ ] **PERF-02**: PerformanceOverlay direct-to-buffer rendering — `draw(screen, frameStats)` paints 34x14 box to screen buffer at top-right corner with Unicode borders, "Gotta Go Fast" title, color-coded thresholds (green <70%, yellow 70-100%, red >100%).
-- [ ] **PERF-03**: `WidgetsBinding.toggleFrameStatsOverlay()` — method to toggle overlay on/off with forced paint frame request.
+- [x] **PERF-01**: PerformanceTracker additional metrics — `keyEventTimes`, `mouseEventTimes`, `repaintPercents`, `bytesWritten` with P95/P99 getters for all categories.
+- [x] **PERF-02**: PerformanceOverlay direct-to-buffer rendering — `draw(screen, frameStats)` paints 34x14 box to screen buffer at top-right corner with Unicode borders, "Gotta Go Fast" title, color-coded thresholds (green <70%, yellow 70-100%, red >100%).
+- [x] **PERF-03**: `WidgetsBinding.toggleFrameStatsOverlay()` — method to toggle overlay on/off with forced paint frame request.
 
 ### Minor Enhancements (MINR)
 
-- [ ] **MINR-01**: JetBrains terminal wheel filter — `jetBrainsWheelFilter` on TerminalManager for non-standard scroll behavior in JetBrains terminals.
-- [ ] **MINR-02**: `setCursorPositionHint(x, y)` on ScreenBuffer — sets cursor position without changing visibility.
-- [ ] **MINR-03**: `processResizeIfPending()` as separate BUILD phase callback at priority -1000 (between beginFrame at -2000 and buildScopes at 0).
-- [ ] **MINR-04**: `eventCallbacks.paste` array — global paste event callback list on WidgetsBinding alongside existing key/mouse callbacks.
-- [ ] **MINR-05**: `capabilities.scrollStep()` method — configurable lines per scroll step (default 3).
-- [ ] **MINR-06**: Layout helper function (`fS`) — standalone function estimating intrinsic width by recursively examining widget types.
-- [ ] **MINR-07**: `Buffer.getCells()` deep copy method — returns deep copy of all cells.
+- [x] **MINR-01**: JetBrains terminal wheel filter — `jetBrainsWheelFilter` on TerminalManager for non-standard scroll behavior in JetBrains terminals.
+- [x] **MINR-02**: `setCursorPositionHint(x, y)` on ScreenBuffer — sets cursor position without changing visibility.
+- [x] **MINR-03**: `processResizeIfPending()` as separate BUILD phase callback at priority -1000 (between beginFrame at -2000 and buildScopes at 0).
+- [x] **MINR-04**: `eventCallbacks.paste` array — global paste event callback list on WidgetsBinding alongside existing key/mouse callbacks.
+- [x] **MINR-05**: `capabilities.scrollStep()` method — configurable lines per scroll step (default 3).
+- [x] **MINR-06**: Layout helper function (`fS`) — standalone function estimating intrinsic width by recursively examining widget types.
+- [x] **MINR-07**: `Buffer.getCells()` deep copy method — returns deep copy of all cells.
 
 ## v2 Requirements
 
@@ -225,51 +225,53 @@ All 65 v1.0 requirements completed across Phases 1-8. See MILESTONES.md.
 
 All 38 v1.1 requirements completed across Phases 9-15. See MILESTONES.md.
 
-### v1.2 Traceability
+### v1.2 Traceability (Complete)
+
+All 35 v1.2 requirements completed across Phases 16-22.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| IMG-01 | Phase 19 | Pending |
-| IMG-02 | Phase 19 | Pending |
-| IMG-03 | Phase 19 | Pending |
-| ATHM-01 | Phase 16 | Pending |
-| ATHM-02 | Phase 16 | Pending |
-| TXFD-01 | Phase 20 | Pending |
-| TXFD-02 | Phase 20 | Pending |
-| TXFD-03 | Phase 20 | Pending |
-| TXFD-04 | Phase 20 | Pending |
-| TXFD-05 | Phase 20 | Pending |
-| RPIP-01 | Phase 17 | Pending |
-| RPIP-02 | Phase 17 | Pending |
-| RPIP-03 | Phase 17 | Pending |
-| RPIP-04 | Phase 17 | Pending |
-| RPIP-05 | Phase 17 | Pending |
-| TPRO-01 | Phase 18 | Pending |
-| TPRO-02 | Phase 18 | Pending |
-| TPRO-03 | Phase 18 | Pending |
-| TPRO-04 | Phase 18 | Pending |
-| TPRO-05 | Phase 18 | Pending |
-| TPRO-06 | Phase 18 | Pending |
-| TPRO-07 | Phase 18 | Pending |
-| TPRO-08 | Phase 18 | Pending |
-| TPRO-09 | Phase 18 | Pending |
-| TPRO-10 | Phase 18 | Pending |
-| PERF-01 | Phase 21 | Pending |
-| PERF-02 | Phase 21 | Pending |
-| PERF-03 | Phase 21 | Pending |
-| MINR-01 | Phase 22 | Pending |
-| MINR-02 | Phase 22 | Pending |
-| MINR-03 | Phase 22 | Pending |
-| MINR-04 | Phase 22 | Pending |
-| MINR-05 | Phase 22 | Pending |
-| MINR-06 | Phase 22 | Pending |
-| MINR-07 | Phase 22 | Pending |
+| IMG-01 | Phase 19 | Complete |
+| IMG-02 | Phase 19 | Complete |
+| IMG-03 | Phase 19 | Complete |
+| ATHM-01 | Phase 16 | Complete |
+| ATHM-02 | Phase 16 | Complete |
+| TXFD-01 | Phase 20 | Complete |
+| TXFD-02 | Phase 20 | Complete |
+| TXFD-03 | Phase 20 | Complete |
+| TXFD-04 | Phase 20 | Complete |
+| TXFD-05 | Phase 20 | Complete |
+| RPIP-01 | Phase 17 | Complete |
+| RPIP-02 | Phase 17 | Complete |
+| RPIP-03 | Phase 17 | Complete |
+| RPIP-04 | Phase 17 | Complete |
+| RPIP-05 | Phase 17 | Complete |
+| TPRO-01 | Phase 18 | Complete |
+| TPRO-02 | Phase 18 | Complete |
+| TPRO-03 | Phase 18 | Complete |
+| TPRO-04 | Phase 18 | Complete |
+| TPRO-05 | Phase 18 | Complete |
+| TPRO-06 | Phase 18 | Complete |
+| TPRO-07 | Phase 18 | Complete |
+| TPRO-08 | Phase 18 | Complete |
+| TPRO-09 | Phase 18 | Complete |
+| TPRO-10 | Phase 18 | Complete |
+| PERF-01 | Phase 21 | Complete |
+| PERF-02 | Phase 21 | Complete |
+| PERF-03 | Phase 21 | Complete |
+| MINR-01 | Phase 22 | Complete |
+| MINR-02 | Phase 22 | Complete |
+| MINR-03 | Phase 22 | Complete |
+| MINR-04 | Phase 22 | Complete |
+| MINR-05 | Phase 22 | Complete |
+| MINR-06 | Phase 22 | Complete |
+| MINR-07 | Phase 22 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 35 total
-- Mapped to phases: 35
-- Unmapped: 0
+- Completed: 35
+- Remaining: 0
 
 ---
 *Requirements defined: 2026-03-21 (v1.0)*
-*Last updated: 2026-03-22 after v1.2 gap analysis*
+*Last updated: 2026-03-22 — v1.2 complete*

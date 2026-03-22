@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Amp CLI Deep Fidelity
-status: planned
-stopped_at: Milestone planning complete, ready for phase execution
-last_updated: "2026-03-22T13:24:00Z"
+status: complete
+stopped_at: All v1.2 phases (16-22) complete
+last_updated: "2026-03-22T15:00:00Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 7
   total_plans: 17
-  completed_plans: 0
-  percent: 0
+  completed_plans: 17
+  percent: 100
 ---
 
 # Project State
@@ -21,37 +21,37 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Flutter-faithful TUI framework with declarative widgets, box-constraint layout, and 60fps cell-level diff rendering
-**Current focus:** v1.2 Amp CLI Deep Fidelity — Planned
+**Current focus:** v1.2 Amp CLI Deep Fidelity — Complete
 
 ## Current Position
 
-Phase: 16 of 22 (AppTheme & Syntax Highlighting) — NOT STARTED
-Plan: 0/17 plans complete
-Status: Planned
+Phase: 22 of 22 (Minor Fidelity Fixes) — COMPLETE
+Plan: 17/17 plans complete
+Status: Complete
 Last activity: 2026-03-22
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████████] 100%
 
 ## v1.2 Phase Overview
 
 | Phase | Name | Requirements | Plans | Status |
 |-------|------|-------------|-------|--------|
-| 16 | AppTheme & Syntax Highlighting | ATHM-01, ATHM-02 | 2 | Planned |
-| 17 | Rendering Pipeline Enhancements | RPIP-01..05 | 3 | Planned |
-| 18 | Terminal Protocol Extensions | TPRO-01..10 | 3 | Planned |
-| 19 | Image Protocol | IMG-01..03 | 2 | Planned |
-| 20 | TextField Complete Rewrite | TXFD-01..05 | 3 | Planned |
-| 21 | Performance Diagnostics Upgrade | PERF-01..03 | 2 | Planned |
-| 22 | Minor Fidelity Fixes | MINR-01..07 | 2 | Planned |
+| 16 | AppTheme & Syntax Highlighting | ATHM-01, ATHM-02 | 2 | Complete |
+| 17 | Rendering Pipeline Enhancements | RPIP-01..05 | 3 | Complete |
+| 18 | Terminal Protocol Extensions | TPRO-01..10 | 3 | Complete |
+| 19 | Image Protocol | IMG-01..03 | 2 | Complete |
+| 20 | TextField Complete Rewrite | TXFD-01..05 | 3 | Complete |
+| 21 | Performance Diagnostics Upgrade | PERF-01..03 | 2 | Complete |
+| 22 | Minor Fidelity Fixes | MINR-01..07 | 2 | Complete |
 
-## Recommended Execution Order (Waves)
+## Execution History
 
-| Wave | Phase(s) | Rationale |
-|------|----------|-----------|
-| W12 | 16 + 17 | Independent: AppTheme vs rendering pipeline |
-| W13 | 18 | Depends on Phase 17 Renderer enhancements |
-| W14 | 19 + 20 + 21 | All depend on W12/W13; can run in parallel |
-| W15 | 22 | Final sweep |
+| Wave | Phase(s) | Parallelism | Result |
+|------|----------|-------------|--------|
+| W12 | 16 + 17 | 2 parallel agents | 77 + 56 new tests |
+| W13 | 18 | Sequential | 44 new tests |
+| W14 | 19 + 20 + 21 | 3 parallel agents | 62 + 133 + 98 new tests |
+| W15 | 22 | Sequential | 30 new tests |
 
 ## Performance Metrics
 
@@ -59,9 +59,9 @@ Progress: [░░░░░░░░░░] 0%
 
 - v1.0 plans completed: 25
 - v1.1 plans completed: 16
-- v1.2 plans planned: 17
-- Total plans completed: 41
-- Total test count: 2165 (0 failures)
+- v1.2 plans completed: 17
+- Total plans completed: 58
+- Total test count: 2603 (0 failures)
 - Total examples: 28
 
 ## Accumulated Context
@@ -76,10 +76,11 @@ Recent decisions affecting current work:
 - [v1.2]: TextField requires complete rewrite (not incremental enhancement) — current skeleton is too far from Amp's implementation
 - [v1.2]: PerformanceOverlay must draw directly to screen buffer (not as widget in tree) to match Amp's BB0
 - [v1.2]: Alpha compositing is P1 because semi-transparent overlays and the perf overlay background depend on it
+- [v1.2]: estimateIntrinsicWidth() added as standalone layout helper (not on RenderObject) matching Amp's fS pattern
 
 ### Pending Todos
 
-None — milestone just started.
+None — v1.2 milestone complete.
 
 ### Blockers/Concerns
 
@@ -87,6 +88,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T13:24:00Z
-Stopped at: Milestone planning complete
+Last session: 2026-03-22T15:00:00Z
+Stopped at: v1.2 milestone complete
 Resume file: None
