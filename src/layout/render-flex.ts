@@ -146,17 +146,29 @@ export class RenderFlex extends ContainerRenderBox {
 
   /**
    * Returns the maximum intrinsic width.
-   * Horizontal: sum of children's maxIntrinsicWidth
+   * Horizontal: sum of non-flex children + flex-proportional scaling for flex children.
+   *   Each flex child contributes max(child.maxIntrinsicWidth / flex) * flex.
    * Vertical: max of children's maxIntrinsicWidth
    */
   getMaxIntrinsicWidth(height: number): number {
     if (this._direction === 'horizontal') {
-      // Sum of all children's maxIntrinsicWidth
-      let total = 0;
+      // Amp ref: oU0 max intrinsic along main axis uses flex-proportional scaling.
+      let nonFlexTotal = 0;
+      let totalFlex = 0;
+      let maxPerFlex = 0;
+
       for (const child of this.children) {
-        total += child.getMaxIntrinsicWidth(height);
+        const pd = child.parentData as FlexParentData;
+        if (pd.flex > 0) {
+          totalFlex += pd.flex;
+          const childIntrinsic = child.getMaxIntrinsicWidth(height);
+          const perFlex = childIntrinsic / pd.flex;
+          if (perFlex > maxPerFlex) maxPerFlex = perFlex;
+        } else {
+          nonFlexTotal += child.getMaxIntrinsicWidth(height);
+        }
       }
-      return total;
+      return nonFlexTotal + maxPerFlex * totalFlex;
     } else {
       // Vertical: max of children's maxIntrinsicWidth
       let maxVal = 0;
@@ -197,7 +209,7 @@ export class RenderFlex extends ContainerRenderBox {
   /**
    * Returns the maximum intrinsic height.
    * Horizontal: max of children's maxIntrinsicHeight
-   * Vertical: sum of children's maxIntrinsicHeight
+   * Vertical: sum of non-flex children + flex-proportional scaling for flex children.
    */
   getMaxIntrinsicHeight(width: number): number {
     if (this._direction === 'horizontal') {
@@ -209,12 +221,23 @@ export class RenderFlex extends ContainerRenderBox {
       }
       return maxVal;
     } else {
-      // Vertical: sum of all children's maxIntrinsicHeight
-      let total = 0;
+      // Amp ref: oU0 max intrinsic along main axis uses flex-proportional scaling.
+      let nonFlexTotal = 0;
+      let totalFlex = 0;
+      let maxPerFlex = 0;
+
       for (const child of this.children) {
-        total += child.getMaxIntrinsicHeight(width);
+        const pd = child.parentData as FlexParentData;
+        if (pd.flex > 0) {
+          totalFlex += pd.flex;
+          const childIntrinsic = child.getMaxIntrinsicHeight(width);
+          const perFlex = childIntrinsic / pd.flex;
+          if (perFlex > maxPerFlex) maxPerFlex = perFlex;
+        } else {
+          nonFlexTotal += child.getMaxIntrinsicHeight(width);
+        }
       }
-      return total;
+      return nonFlexTotal + maxPerFlex * totalFlex;
     }
   }
 

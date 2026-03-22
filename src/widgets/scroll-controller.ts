@@ -12,6 +12,7 @@ export class ScrollController {
   private _maxScrollExtent: number = 0;
   private _listeners: Set<() => void> = new Set();
   private _followMode: boolean = true;
+  private _disposed: boolean = false;
 
   /** Timer handle for the current animateTo animation, or null if idle. */
   private _animationTimer: ReturnType<typeof setInterval> | null = null;
@@ -50,6 +51,8 @@ export class ScrollController {
    * @param duration - Animation duration in ms (default 200)
    */
   animateTo(targetOffset: number, duration: number = 200): void {
+    if (this._disposed) return;
+
     // Cancel any running animation
     this._cancelAnimation();
 
@@ -99,6 +102,8 @@ export class ScrollController {
    * Re-enables followMode if scrolled to bottom.
    */
   jumpTo(offset: number): void {
+    if (this._disposed) return;
+
     const clamped = Math.max(0, Math.min(offset, this._maxScrollExtent));
     if (clamped !== this._offset) {
       this._offset = clamped;
@@ -163,6 +168,7 @@ export class ScrollController {
 
   /** Remove all listeners, cancel animations, and reset state. */
   dispose(): void {
+    this._disposed = true;
     this._cancelAnimation();
     this._listeners.clear();
   }

@@ -138,9 +138,32 @@ export class SelectionListState extends State<SelectionList> {
   /**
    * Handle a key event for selection navigation.
    * Returns 'handled' if the key was consumed, 'ignored' otherwise.
+   *
+   * Amp ref: ap keyboard handling — supports ArrowUp/Down, j/k, Tab/Shift+Tab,
+   * Ctrl+n/Ctrl+p, Enter, Escape
    */
   handleKeyEvent(event: KeyEvent): KeyEventResult {
     const key = event.key;
+    const ctrl = event.ctrl === true;
+    const shift = event.shift === true;
+
+    // Ctrl+n — move next (Amp ref: ap Ctrl+n)
+    if (ctrl && key === 'n') {
+      this._moveNext();
+      return 'handled';
+    }
+
+    // Ctrl+p — move previous (Amp ref: ap Ctrl+p)
+    if (ctrl && key === 'p') {
+      this._movePrevious();
+      return 'handled';
+    }
+
+    // Shift+Tab — cycle backward (Amp ref: ap Shift+Tab)
+    if (shift && key === 'Tab') {
+      this._movePrevious();
+      return 'handled';
+    }
 
     switch (key) {
       case 'ArrowUp':

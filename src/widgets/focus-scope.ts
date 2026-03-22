@@ -103,9 +103,13 @@ class FocusScopeState extends State<FocusScope> {
     this._setupHandlers();
     this._registerNode();
 
-    // Handle autofocus
+    // Handle autofocus via microtask (Amp ref: KJ.initState uses queueMicrotask)
     if (this.widget.autofocus && this.effectiveFocusNode.canRequestFocus) {
-      this.effectiveFocusNode.requestFocus();
+      queueMicrotask(() => {
+        if (this.mounted && this.effectiveFocusNode.canRequestFocus) {
+          this.effectiveFocusNode.requestFocus();
+        }
+      });
     }
   }
 
@@ -179,12 +183,8 @@ class FocusScopeState extends State<FocusScope> {
   private _setupHandlers(): void {
     const node = this.effectiveFocusNode;
 
-    // Update node properties
+    // Update node properties (also sets onKey/onPaste)
     this._updateNodeProperties();
-
-    // Set key/paste handlers
-    node.onKey = this.widget.onKey ?? null;
-    node.onPaste = this.widget.onPaste ?? null;
 
     // Track focus state for onFocusChange
     this._hadFocus = node.hasFocus;
@@ -220,8 +220,24 @@ class FocusScopeState extends State<FocusScope> {
 
   /**
    * Register the effective focus node with the FocusManager.
+   * Walks up the element tree to find the nearest ancestor FocusScopeState
+   * and registers this node under the ancestor's focus node (Amp ref: KJ uses
+   * context.findAncestorStateOfType(KJ) to find parent).
    */
   private _registerNode(): void {
-    FocusManager.instance.registerNode(this.effectiveFocusNode, null);
+    let parentFocusNode: FocusNode | null = null;
+
+    // Walk up the tree to find the nearest ancestor FocusScopeState
+    // Amp ref: KJ uses context.findAncestorStateOfType(KJ) to find parent
+    // Guard: context may be a mock in tests without findAncestorStateOfType
+    const ctx = this.context as any;
+    if (typeof ctx.findAncestorStateOfType === 'function') {
+      const ancestorState = ctx.findAncestorStateOfType(FocusScopeState);
+      if (ancestorState && ancestorState instanceof FocusScopeState) {
+        parentFocusNode = ancestorState.effectiveFocusNode;
+      }
+    }
+
+    FocusManager.instance.registerNode(this.effectiveFocusNode, parentFocusNode);
   }
 }

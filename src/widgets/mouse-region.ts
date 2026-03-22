@@ -46,6 +46,15 @@ export class RenderMouseRegion extends RenderBox {
   onScroll?: (event: MouseRegionEvent) => void;
   cursor?: string;
 
+  /**
+   * Whether this region blocks hit-testing of regions behind it.
+   * When true (default), overlapping regions below this one will not receive
+   * hover events for the area covered by this region.
+   *
+   * Amp ref: Ba.opaque — controls hit-test blocking for overlapping regions
+   */
+  opaque: boolean;
+
   constructor(opts?: {
     onClick?: (event: MouseRegionEvent) => void;
     onRelease?: (event: MouseRegionEvent) => void;
@@ -55,6 +64,7 @@ export class RenderMouseRegion extends RenderBox {
     onHover?: (event: MouseRegionEvent) => void;
     onScroll?: (event: MouseRegionEvent) => void;
     cursor?: string;
+    opaque?: boolean;
   }) {
     super();
     this.onClick = opts?.onClick;
@@ -65,6 +75,7 @@ export class RenderMouseRegion extends RenderBox {
     this.onHover = opts?.onHover;
     this.onScroll = opts?.onScroll;
     this.cursor = opts?.cursor;
+    this.opaque = opts?.opaque ?? true;
   }
 
   get child(): RenderBox | null {
@@ -163,6 +174,7 @@ export class MouseRegion extends SingleChildRenderObjectWidget {
   readonly onHover?: (event: MouseRegionEvent) => void;
   readonly onScroll?: (event: MouseRegionEvent) => void;
   readonly cursor?: string;
+  readonly opaque: boolean;
 
   constructor(opts?: {
     key?: Key;
@@ -175,6 +187,7 @@ export class MouseRegion extends SingleChildRenderObjectWidget {
     onHover?: (event: MouseRegionEvent) => void;
     onScroll?: (event: MouseRegionEvent) => void;
     cursor?: string;
+    opaque?: boolean;
   }) {
     super({ key: opts?.key, child: opts?.child });
     this.onClick = opts?.onClick;
@@ -185,6 +198,7 @@ export class MouseRegion extends SingleChildRenderObjectWidget {
     this.onHover = opts?.onHover;
     this.onScroll = opts?.onScroll;
     this.cursor = opts?.cursor;
+    this.opaque = opts?.opaque ?? true;
   }
 
   createRenderObject(): RenderMouseRegion {
@@ -197,6 +211,7 @@ export class MouseRegion extends SingleChildRenderObjectWidget {
       onHover: this.onHover,
       onScroll: this.onScroll,
       cursor: this.cursor,
+      opaque: this.opaque,
     });
   }
 
@@ -210,6 +225,7 @@ export class MouseRegion extends SingleChildRenderObjectWidget {
       renderObject.onHover = this.onHover;
       renderObject.onScroll = this.onScroll;
       renderObject.cursor = this.cursor;
+      renderObject.opaque = this.opaque;
     }
   }
 }

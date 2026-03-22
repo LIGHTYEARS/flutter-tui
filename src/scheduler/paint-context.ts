@@ -83,6 +83,25 @@ export class PaintContext {
   }
 
   /**
+   * Get the screen buffer from a PaintContext.
+   * Used by ClipCanvas to pass screen to super() without `as any`.
+   */
+  static getScreen(ctx: PaintContext): ScreenBuffer {
+    return ctx.screen;
+  }
+
+  /**
+   * Set clip bounds on a PaintContext subclass instance.
+   * Used by ClipCanvas constructor to avoid `as any` casts on readonly fields.
+   */
+  static setClipBounds(ctx: PaintContext, x: number, y: number, w: number, h: number): void {
+    (ctx as any).clipX = x;
+    (ctx as any).clipY = y;
+    (ctx as any).clipW = w;
+    (ctx as any).clipH = h;
+  }
+
+  /**
    * Check if coordinate (x, y) is within the clip rect.
    * For wide characters, checks that the full width fits.
    */

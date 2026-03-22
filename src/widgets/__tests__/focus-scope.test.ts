@@ -121,13 +121,16 @@ describe('FocusScopeState', () => {
     state._unmount();
   });
 
-  test('autofocus requests focus on initState', () => {
+  test('autofocus requests focus on initState', async () => {
     const child = new _DummyWidget();
     const scope = new FocusScope({ child, autofocus: true });
     const state = scope.createState() as any;
 
     const mockContext = { widget: scope, mounted: true } as BuildContext;
     state._mount(scope, mockContext);
+
+    // Autofocus uses queueMicrotask (Amp ref: KJ.initState deferred focus)
+    await new Promise(r => setTimeout(r, 0));
 
     expect(state.effectiveFocusNode.hasPrimaryFocus).toBe(true);
 
@@ -149,7 +152,7 @@ describe('FocusScopeState', () => {
     state._unmount();
   });
 
-  test('wires onKey handler to focus node', () => {
+  test('wires onKey handler to focus node', async () => {
     const child = new _DummyWidget();
     const events: KeyEvent[] = [];
 
@@ -166,6 +169,9 @@ describe('FocusScopeState', () => {
     const mockContext = { widget: scope, mounted: true } as BuildContext;
     state._mount(scope, mockContext);
 
+    // Wait for deferred autofocus
+    await new Promise(r => setTimeout(r, 0));
+
     // Dispatch a key event through FocusManager
     const event = createKeyEvent('a');
     const result = FocusManager.instance.dispatchKeyEvent(event);
@@ -178,7 +184,7 @@ describe('FocusScopeState', () => {
     state._unmount();
   });
 
-  test('wires onPaste handler to focus node', () => {
+  test('wires onPaste handler to focus node', async () => {
     const child = new _DummyWidget();
     const pastedTexts: string[] = [];
 
@@ -193,6 +199,9 @@ describe('FocusScopeState', () => {
 
     const mockContext = { widget: scope, mounted: true } as BuildContext;
     state._mount(scope, mockContext);
+
+    // Wait for deferred autofocus
+    await new Promise(r => setTimeout(r, 0));
 
     // Dispatch paste through FocusManager
     FocusManager.instance.dispatchPasteEvent('hello clipboard');
@@ -308,13 +317,16 @@ describe('FocusScopeState', () => {
     externalNode.dispose();
   });
 
-  test('registers node with FocusManager', () => {
+  test('registers node with FocusManager', async () => {
     const child = new _DummyWidget();
     const scope = new FocusScope({ child, autofocus: true });
     const state = scope.createState() as any;
 
     const mockContext = { widget: scope, mounted: true } as BuildContext;
     state._mount(scope, mockContext);
+
+    // Wait for deferred autofocus
+    await new Promise(r => setTimeout(r, 0));
 
     // The node should be in the focus tree (reachable from root)
     expect(FocusManager.instance.primaryFocus).toBe(state.effectiveFocusNode);

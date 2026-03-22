@@ -34,9 +34,12 @@ export class TextSpan {
   /**
    * Visit each text segment with its effective (merged) style, hyperlink, and onClick.
    * Callback receives (text, style, hyperlink, onClick) for each text segment in tree order.
+   * If the callback returns false, traversal stops immediately (Amp ref: q.visitTextSpan
+   * early termination).
    * parentStyle is the inherited style from ancestors.
    * parentHyperlink is the inherited hyperlink from ancestors.
    * parentOnClick is the inherited onClick from ancestors.
+   * Returns false if traversal was stopped early, true otherwise.
    */
   visitChildren(
     visitor: (
@@ -44,11 +47,11 @@ export class TextSpan {
       style: TextStyle,
       hyperlink?: TextSpanHyperlink,
       onClick?: () => void,
-    ) => void,
+    ) => void | boolean,
     parentStyle?: TextStyle,
     parentHyperlink?: TextSpanHyperlink,
     parentOnClick?: () => void,
-  ): void {
+  ): boolean {
     // Compute effective style by merging parent style with this node's style
     const effectiveStyle = this._computeEffectiveStyle(parentStyle);
     // Compute effective hyperlink: this node's overrides parent's
@@ -58,15 +61,19 @@ export class TextSpan {
 
     // Visit this node's text if present
     if (this.text !== undefined && this.text.length > 0) {
-      visitor(this.text, effectiveStyle, effectiveHyperlink, effectiveOnClick);
+      const result = visitor(this.text, effectiveStyle, effectiveHyperlink, effectiveOnClick);
+      if (result === false) return false;
     }
 
     // Visit children with the effective values as their parent
     if (this.children) {
       for (const child of this.children) {
-        child.visitChildren(visitor, effectiveStyle, effectiveHyperlink, effectiveOnClick);
+        const continueWalk = child.visitChildren(visitor, effectiveStyle, effectiveHyperlink, effectiveOnClick);
+        if (continueWalk === false) return false;
       }
     }
+
+    return true;
   }
 
   /**
