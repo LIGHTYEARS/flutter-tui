@@ -55,6 +55,68 @@ export class TextStyle {
   }
 
   /**
+   * CopyWith: returns a new TextStyle with only the specified fields overridden.
+   * Uses undefined-checking — only fields explicitly provided in `overrides` replace
+   * the corresponding field from `this`. Unspecified fields keep their current value.
+   * Amp ref: m0.copyWith
+   */
+  copyWith(overrides?: {
+    foreground?: Color;
+    background?: Color;
+    bold?: boolean;
+    dim?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+    strikethrough?: boolean;
+    inverse?: boolean;
+    hidden?: boolean;
+  }): TextStyle {
+    return new TextStyle({
+      foreground: overrides?.foreground !== undefined ? overrides.foreground : this.foreground,
+      background: overrides?.background !== undefined ? overrides.background : this.background,
+      bold: overrides?.bold !== undefined ? overrides.bold : this.bold,
+      dim: overrides?.dim !== undefined ? overrides.dim : this.dim,
+      italic: overrides?.italic !== undefined ? overrides.italic : this.italic,
+      underline: overrides?.underline !== undefined ? overrides.underline : this.underline,
+      strikethrough: overrides?.strikethrough !== undefined ? overrides.strikethrough : this.strikethrough,
+      inverse: overrides?.inverse !== undefined ? overrides.inverse : this.inverse,
+      hidden: overrides?.hidden !== undefined ? overrides.hidden : this.hidden,
+    });
+  }
+
+  // -- Static factories (Amp ref: m0 static methods) --
+
+  /** Plain text style, optionally with a foreground color. */
+  static normal(color?: Color): TextStyle {
+    return new TextStyle(color !== undefined ? { foreground: color } : undefined);
+  }
+
+  /** Bold text style, optionally with a foreground color. */
+  static bold(color?: Color): TextStyle {
+    return new TextStyle({ bold: true, foreground: color });
+  }
+
+  /** Italic text style, optionally with a foreground color. */
+  static italic(color?: Color): TextStyle {
+    return new TextStyle({ italic: true, foreground: color });
+  }
+
+  /** Underline text style, optionally with a foreground color. */
+  static underline(color?: Color): TextStyle {
+    return new TextStyle({ underline: true, foreground: color });
+  }
+
+  /** Just a foreground color, no other styling. */
+  static colored(color: Color): TextStyle {
+    return new TextStyle({ foreground: color });
+  }
+
+  /** Just a background color, no other styling. */
+  static background(color: Color): TextStyle {
+    return new TextStyle({ background: color });
+  }
+
+  /**
    * Produce SGR parameter string for this style (e.g. "1;31;42" for bold red on green).
    * Only includes attributes that are explicitly set (not undefined).
    * Returns empty string if no attributes are set.
