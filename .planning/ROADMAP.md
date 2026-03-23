@@ -46,10 +46,10 @@ Build a complete Flutter-for-Terminal framework in TypeScript/Bun, progressing f
 
 ### v1.3 Phases
 
-- [ ] **Phase 23: WidgetsBinding + TerminalManager + FrameScheduler Core** — Refactor WidgetsBinding to own TerminalManager, register 6 frame callbacks, eliminate scheduleFrame/drawFrame; enhance FrameScheduler as sole scheduling authority; refactor TerminalManager as J3-owned class
-- [ ] **Phase 24: BuildOwner + Element + Input Pipeline Alignment** — BuildOwner.scheduleBuildFor calls c9.requestFrame directly; Element.markNeedsRebuild uses proper import; setupEventHandlers inside J3; thin runApp wrapper; initSchedulers cleanup
-- [ ] **Phase 25: Integration Testing + Example Validation** — End-to-end setState→render tests, interactive example validation, regression test suite
-- [ ] **Phase 26: Test Fixes + Cleanup** — Fix any test failures from refactoring, remove dead code (InputBridge standalone usage, drawFrame, scheduleFrame), update all examples and docs
+- [x] **Phase 23: WidgetsBinding + TerminalManager + FrameScheduler Core** — Refactor WidgetsBinding to own TerminalManager, register 6 frame callbacks, eliminate scheduleFrame/drawFrame; enhance FrameScheduler as sole scheduling authority; refactor TerminalManager as J3-owned class
+- [x] **Phase 24: BuildOwner + Element + Input Pipeline Alignment** — BuildOwner.scheduleBuildFor calls c9.requestFrame directly; Element.markNeedsRebuild uses proper import; setupEventHandlers inside J3; thin runApp wrapper; initSchedulers cleanup
+- [x] **Phase 25: Integration Testing + Example Validation** — End-to-end setState→render tests, interactive example validation, regression test suite
+- [x] **Phase 26: Test Fixes + Cleanup** — Fix any test failures from refactoring, remove dead code (InputBridge standalone usage, drawFrame, scheduleFrame), update all examples and docs
 
 ## Dependency DAG
 
@@ -499,9 +499,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 23-01: FrameScheduler enhancement — Add frame pacing (Oy = 16.67ms), scheduleFrameExecution with setImmediate/setTimeout, runScheduledFrame guard, post-frame re-schedule. Match c9 from frame-scheduler.md:78-213
-- [ ] 23-02: TerminalManager refactoring — Refactor as J3-owned class with parser/screen/renderer/queryParser/capabilities/event handler arrays, init/deinit/render lifecycle. Match wB0 from screen-buffer.md:709-780
-- [ ] 23-03: WidgetsBinding refactoring — Rewrite J3 constructor (6 frame callbacks, VG8 registration), runApp (async, tui init, MediaQuery, mount, waitForExit), beginFrame/paint/render, cleanup, stop. Remove scheduleFrame/drawFrame. Match widget-tree.md:1134-1296
+- [x] 23-01: FrameScheduler enhancement — Add frame pacing (Oy = 16.67ms), scheduleFrameExecution with setImmediate/setTimeout, runScheduledFrame guard, post-frame re-schedule. Match c9 from frame-scheduler.md:78-213
+- [x] 23-02: TerminalManager refactoring — Refactor as J3-owned class with parser/screen/renderer/queryParser/capabilities/event handler arrays, init/deinit/render lifecycle. Match wB0 from screen-buffer.md:709-780
+- [x] 23-03: WidgetsBinding refactoring — Rewrite J3 constructor (6 frame callbacks, VG8 registration), runApp (async, tui init, MediaQuery, mount, waitForExit), beginFrame/paint/render, cleanup, stop. Remove scheduleFrame/drawFrame. Match widget-tree.md:1134-1296
 
 ### Phase 24: BuildOwner + Element + Input Pipeline Alignment
 **Goal**: Make BuildOwner call c9.requestFrame() directly, fix Element.markNeedsRebuild import, move input wiring inside J3.setupEventHandlers, make runApp a thin wrapper, clean up initSchedulers bridge.
@@ -530,9 +530,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 24-01: BuildOwner + Element alignment — scheduleBuildFor calls requestFrame directly, Element uses proper import for scheduleBuildFor. Match element-tree.md:1277-1293
-- [ ] 24-02: runApp + initSchedulers — Thin cz8 wrapper, clean up VG8/initSchedulers bridge (no scheduleFrame call). Match widget-tree.md:1178-1185,1314-1321
-- [ ] 24-03: Input pipeline alignment — setupEventHandlers inside J3, wB0 event handlers → FocusManager/MouseManager, eliminate standalone InputBridge from event chain. Match input-system.md:601-634
+- [x] 24-01: BuildOwner + Element alignment — scheduleBuildFor calls requestFrame directly, Element uses proper import for scheduleBuildFor. Match element-tree.md:1277-1293
+- [x] 24-02: runApp + initSchedulers — Thin cz8 wrapper, clean up VG8/initSchedulers bridge (no scheduleFrame call). Match widget-tree.md:1178-1185,1314-1321
+- [x] 24-03: Input pipeline alignment — setupEventHandlers inside J3, wB0 event handlers → FocusManager/MouseManager, eliminate standalone InputBridge from event chain. Match input-system.md:601-634
 
 ### Phase 25: Integration Testing + Example Validation
 **Goal**: Verify the full setState→render pipeline works end-to-end with automated tests and manual example validation
@@ -552,8 +552,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 25-01: Pipeline integration tests — Test setState→render full chain, test frame pacing, test dirty element scheduling, test build/layout/paint/render phase order
-- [ ] 25-02: Example validation + regression — Validate counter/hello-world examples, run full test suite, fix any regressions
+- [x] 25-01: Pipeline integration tests — Test setState→render full chain, test frame pacing, test dirty element scheduling, test build/layout/paint/render phase order
+- [x] 25-02: Example validation + regression — Validate counter/hello-world examples, run full test suite, fix any regressions
 
 ### Phase 26: Cleanup + Dead Code Removal
 **Goal**: Remove dead code from refactoring, update documentation and examples to use new architecture
@@ -567,7 +567,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 26-01: Dead code removal + docs — Remove unused InputBridge standalone code paths, drawFrame, scheduleFrame, _frameScheduled; update examples; verify CLAUDE.md accuracy
+- [x] 26-01: Dead code removal + docs — Remove unused InputBridge standalone code paths, drawFrame, scheduleFrame, _frameScheduled; update examples; verify CLAUDE.md accuracy
 
 ## v1.3 Parallel Wave Strategy
 

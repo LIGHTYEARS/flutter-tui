@@ -114,7 +114,7 @@ When searching amp-strings.txt, these minified names map to our classes:
 | UB0 | PipelineOwner | framework/pipeline-owner.ts |
 | c9 | FrameScheduler | scheduler/frame-scheduler.ts |
 | ij | ScreenBuffer | terminal/screen-buffer.ts |
-| wB0 | TerminalManager | terminal/terminal-io.ts |
+| wB0 | TerminalManager | terminal/terminal-manager.ts |
 | BB0 | PerformanceOverlay | diagnostics/perf-overlay.ts |
 | J3 | WidgetsBinding | framework/binding.ts |
 | e0 | Text | widgets/text.ts |
