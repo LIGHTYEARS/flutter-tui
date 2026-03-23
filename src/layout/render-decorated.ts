@@ -236,17 +236,9 @@ export class RenderDecoratedBox extends RenderBox {
 
     if (w <= 0 || h <= 0) return;
 
-    // Paint background color (fill the interior)
+    // Paint background color (fill the entire area including border region)
     if (this._decoration.color) {
-      const border = this._decoration.border;
-      const innerLeft = col + (border?.left.width ?? 0);
-      const innerTop = row + (border?.top.width ?? 0);
-      const innerW = w - (border?.horizontal ?? 0);
-      const innerH = h - (border?.vertical ?? 0);
-
-      if (innerW > 0 && innerH > 0) {
-        ctx.fillRect(innerLeft, innerTop, innerW, innerH, ' ', { bg: this._decoration.color });
-      }
+      ctx.fillRect(col, row, w, h, ' ', { bg: this._decoration.color });
     }
 
     // Paint border
