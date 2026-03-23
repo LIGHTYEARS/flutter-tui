@@ -575,13 +575,13 @@ export class WidgetsBinding {
    * Amp ref: c9.requestFrame() — coalesced, only one pending frame at a time
    */
   scheduleFrame(): void {
-    if (this._frameScheduled) return;
-    this._frameScheduled = true;
-
-    // Try to use FrameScheduler if available
+    // Try to use FrameScheduler if available — it has its own coalescing
+    // so we don't need our own _frameScheduled guard for that path.
     if (this._useFrameScheduler()) return;
 
-    // Fallback: use queueMicrotask
+    // Fallback: use queueMicrotask with our own coalescing
+    if (this._frameScheduled) return;
+    this._frameScheduled = true;
     queueMicrotask(() => this.drawFrame());
   }
 
@@ -702,7 +702,13 @@ export class WidgetsBinding {
           this.pipelineOwner.flushLayout();
         }, 'layout', 0, 'layout');
         scheduler.addFrameCallback('paint-phase', () => this.paint(), 'paint', 0, 'paint');
-        scheduler.addFrameCallback('render-phase', () => this.render(), 'render', 0, 'render');
+        scheduler.addFrameCallback('render-phase', () => {
+          this.render();
+          // POST-FRAME: Re-evaluate hover state after layout changes
+          if (this.mouseManager) {
+            this.mouseManager.reestablishHoverState();
+          }
+        }, 'render', 0, 'render');
       }
     } catch (_e) {
       // FrameScheduler not available yet — will use queueMicrotask fallback
