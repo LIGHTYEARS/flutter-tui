@@ -1,15 +1,20 @@
-// WidgetsBinding + runApp() — top-level orchestrator
+// WidgetsBinding + runApp() -- top-level orchestrator
 // Amp ref: J3 (WidgetsBinding), cz8 (runApp), amp-strings.txt:530127
 // Reference: .reference/widget-tree.md, .reference/frame-scheduler.md
 //
 // CRITICAL Amp fidelity notes:
 // - WidgetsBinding is a singleton that registers callbacks with FrameScheduler
-// - Owns BuildOwner + PipelineOwner
+// - Owns BuildOwner + PipelineOwner + TerminalManager
 // - runApp creates the root element, attaches it, and schedules first frame
 // - Frame phases: build -> layout -> paint -> render
 //
-// Phase 5 upgrade: ScreenBuffer + Renderer integration, dirty state tracking,
-// frame phase methods (beginFrame, paint, render), handleResize via pending event
+// Phase 23-03 refactoring: Aligned with Amp's J3 class structure.
+// - Static FrameScheduler import (no dynamic require)
+// - TerminalManager (tui) field owned by binding
+// - runApp() instance method with waitForExit/stop pattern
+// - Standalone runApp() is thin wrapper (matching cz8)
+// - Removed scheduleFrame()/drawFrame()/_frameScheduled
+// - cleanup() method matching J3.cleanup
 
 import { BuildOwner } from './build-owner';
 import { PipelineOwner } from './pipeline-owner';
@@ -25,6 +30,9 @@ import { MouseManager } from '../input/mouse-manager';
 import { FocusManager } from '../input/focus';
 import { PerformanceOverlay } from '../diagnostics/perf-overlay';
 import { FrameStats } from '../diagnostics/frame-stats';
+import { FrameScheduler } from '../scheduler/frame-scheduler';
+import { TerminalManager } from '../terminal/terminal-manager';
+import { MockPlatform, BunPlatform } from '../terminal/platform';
 
 // ---------------------------------------------------------------------------
 // Global build/paint scheduler accessors (Amp: lF, dF, VG8, XG8, xH)
@@ -33,12 +41,12 @@ import { FrameStats } from '../diagnostics/frame-stats';
 // BuildOwner and PipelineOwner. Set during WidgetsBinding construction.
 // ---------------------------------------------------------------------------
 
-/** Build scheduler interface — wraps BuildOwner.scheduleBuildFor */
+/** Build scheduler interface -- wraps BuildOwner.scheduleBuildFor */
 interface BuildScheduler {
   scheduleBuildFor(element: Element): void;
 }
 
-/** Paint scheduler interface — wraps PipelineOwner methods */
+/** Paint scheduler interface -- wraps PipelineOwner methods */
 interface PaintScheduler {
   requestLayout(node?: any): void;
   requestPaint(node?: any): void;
@@ -106,7 +114,7 @@ export function resetSchedulers(): void {
 
 /**
  * Detect test environment.
- * Amp ref: jz8() — checks BUN_TEST, VITEST, NODE_TEST_CONTEXT
+ * Amp ref: jz8() -- checks BUN_TEST, VITEST, NODE_TEST_CONTEXT
  */
 function isTestEnvironment(): boolean {
   if (typeof process === 'undefined') return false;
@@ -118,7 +126,7 @@ function isTestEnvironment(): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// _RootWidget — internal root widget wrapper
+// _RootWidget -- internal root widget wrapper
 //
 // Wraps the user's widget to provide a root element for the tree.
 // ---------------------------------------------------------------------------
@@ -141,7 +149,7 @@ class _RootWidget extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Output writer interface — abstracts stdout for testability
+// Output writer interface -- abstracts stdout for testability
 // ---------------------------------------------------------------------------
 
 export interface OutputWriter {
@@ -149,24 +157,29 @@ export interface OutputWriter {
 }
 
 // ---------------------------------------------------------------------------
-// WidgetsBinding (Amp: J3) — singleton orchestrator
+// WidgetsBinding (Amp: J3) -- singleton orchestrator
 //
-// Ties together BuildOwner, PipelineOwner, ScreenBuffer, Renderer,
-// and the frame scheduler. Orchestrates the full 4-phase pipeline:
+// Ties together BuildOwner, PipelineOwner, FrameScheduler, TerminalManager,
+// and the frame callbacks. Orchestrates the full 4-phase pipeline:
 //   BUILD -> LAYOUT -> PAINT -> RENDER
 //
-// Phase 5 upgrade: Real ScreenBuffer + Renderer integration with
-// dirty-state tracking and frame-skip optimization.
+// Phase 23-03: Refactored to match Amp's J3 class structure.
+// - Static FrameScheduler import
+// - tui (TerminalManager) field
+// - 6 named frame callbacks registered in constructor
+// - runApp() instance method with waitForExit/stop pattern
 // ---------------------------------------------------------------------------
 
 export class WidgetsBinding {
   private static _instance: WidgetsBinding | null = null;
 
+  // Amp ref: J3.frameScheduler = c9.instance
+  readonly frameScheduler: FrameScheduler = FrameScheduler.instance;
+
   readonly buildOwner: BuildOwner;
   readonly pipelineOwner: PipelineOwner;
   private _rootElement: Element | null = null;
   private _renderViewSize: Size = new Size(80, 24); // default terminal size
-  private _frameScheduled: boolean = false;
   private _isRunning: boolean = false;
 
   // --- Dirty state tracking (Amp ref: J3 frame state) ---
@@ -175,13 +188,18 @@ export class WidgetsBinding {
   private _didPaintCurrentFrame: boolean = false;
   private _pendingResizeEvent: { width: number; height: number } | null = null;
 
-  // --- Screen buffer + renderer (Phase 5) ---
-  private _screen: ScreenBuffer | null = null;
-  private _renderer: Renderer | null = null;
+  // --- TerminalManager (Amp ref: J3.tui = new wB0) ---
+  // Created with MockPlatform by default (safe for tests).
+  // In runApp(), replaced with real BunPlatform for production.
+  private _tui: TerminalManager;
+
+  // --- Screen buffer + renderer backward compat (Phase 5 legacy) ---
+  // getScreen()/getRenderer() delegate to tui's owned instances.
+  // setOutput()/getOutput() provide legacy output writer interface.
   private _output: OutputWriter | null = null;
 
   // --- Mouse manager (Phase 11) ---
-  // Amp ref: J3.mouseManager — MouseManager instance
+  // Amp ref: J3.mouseManager -- MouseManager instance
   mouseManager: MouseManager | null = null;
 
   // --- Focus manager (Amp ref: J3.focusManager) ---
@@ -204,9 +222,21 @@ export class WidgetsBinding {
   private _perfOverlay: PerformanceOverlay | null = null;
   private _frameStats: FrameStats | null = null;
 
+  // --- waitForExit / stop pattern (Amp ref: J3.exitResolve) ---
+  private _exitResolve: (() => void) | null = null;
+  private _exitPromise: Promise<void> | null = null;
+
+  // --- Root element mounted callback (Amp ref: J3.rootElementMountedCallback) ---
+  private _rootElementMountedCallback: (() => void) | null = null;
+
   private constructor() {
     this.buildOwner = new BuildOwner();
     this.pipelineOwner = new PipelineOwner();
+
+    // Create tui with MockPlatform as safe default (tests get this).
+    // In runApp() for production, this is replaced with BunPlatform.
+    // Amp ref: J3.tui = new wB0
+    this._tui = new TerminalManager(new MockPlatform());
 
     // Wire MouseManager singleton (Amp ref: J3 constructor sets mouseManager)
     this.mouseManager = MouseManager.instance;
@@ -215,13 +245,16 @@ export class WidgetsBinding {
     this.focusManager = FocusManager.instance;
 
     // Wire up global schedulers (Amp ref: VG8 call in J3 constructor)
+    // Note: initSchedulers just delegates to buildOwner.scheduleBuildFor.
+    // In Phase 24, BuildOwner itself will call requestFrame, but for now
+    // keep the bridge behavior working.
     initSchedulers(
       {
         scheduleBuildFor: (element: Element) => {
           this.buildOwner.scheduleBuildFor(element);
           // Also schedule a frame so the dirty element gets rebuilt + repainted.
           // Amp ref: XG8().scheduleBuildFor calls c9.instance.requestFrame()
-          this.scheduleFrame();
+          this.frameScheduler.requestFrame();
         },
       },
       {
@@ -232,13 +265,70 @@ export class WidgetsBinding {
       },
     );
 
-    // Try to register frame callbacks with FrameScheduler if available
-    this._tryRegisterFrameCallbacks();
+    // Register 6 named frame callbacks with FrameScheduler (Amp ref: J3 constructor)
+    // No try/catch, no dynamic require -- static import used.
+    this.frameScheduler.addFrameCallback(
+      'frame-start',
+      () => this.beginFrame(),
+      'build',
+      -2000,
+      'WidgetsBinding.beginFrame',
+    );
+    this.frameScheduler.addFrameCallback(
+      'resize',
+      () => this.processResizeIfPending(),
+      'build',
+      -1000,
+      'WidgetsBinding.processResizeIfPending',
+    );
+    this.frameScheduler.addFrameCallback(
+      'build',
+      () => {
+        this.buildOwner.buildScopes();
+        this.updateRootRenderObject();
+      },
+      'build',
+      0,
+      'BuildOwner.buildScopes',
+    );
+    this.frameScheduler.addFrameCallback(
+      'layout',
+      () => {
+        this.updateRootConstraints(this._renderViewSize);
+        if (this.pipelineOwner.flushLayout()) {
+          this._shouldPaintCurrentFrame = true;
+        }
+      },
+      'layout',
+      0,
+      'PipelineOwner.flushLayout',
+    );
+    this.frameScheduler.addFrameCallback(
+      'paint-phase',
+      () => this.paint(),
+      'paint',
+      0,
+      'WidgetsBinding.paint',
+    );
+    this.frameScheduler.addFrameCallback(
+      'render-phase',
+      () => {
+        this.render();
+        // POST-FRAME: Re-evaluate hover state after layout changes
+        // Amp ref: Pg.reestablishHoverState() registered as post-frame callback
+        if (this.mouseManager) {
+          this.mouseManager.reestablishHoverState();
+        }
+      },
+      'render',
+      0,
+      'WidgetsBinding.render',
+    );
   }
 
   /**
    * Get or create the singleton WidgetsBinding.
-   * Amp ref: J3.instance — static get instance() { return J3._instance ??= new J3; }
+   * Amp ref: J3.instance -- static get instance() { return J3._instance ??= new J3; }
    */
   static get instance(): WidgetsBinding {
     if (!WidgetsBinding._instance) {
@@ -247,21 +337,35 @@ export class WidgetsBinding {
     return WidgetsBinding._instance;
   }
 
+  /**
+   * Get the TerminalManager (Amp ref: J3.tui).
+   */
+  get tui(): TerminalManager {
+    return this._tui;
+  }
+
   /** Reset singleton for testing. */
   static reset(): void {
     if (WidgetsBinding._instance) {
-      WidgetsBinding._instance.buildOwner.dispose();
-      WidgetsBinding._instance.pipelineOwner.dispose();
-      WidgetsBinding._instance._screen = null;
-      WidgetsBinding._instance._renderer = null;
-      WidgetsBinding._instance._output = null;
-      WidgetsBinding._instance.mouseManager = null;
-      WidgetsBinding._instance.focusManager = null;
-      WidgetsBinding._instance.eventCallbacks = { key: [], mouse: [], paste: [] };
-      WidgetsBinding._instance.keyInterceptors = [];
-      WidgetsBinding._instance._showFrameStatsOverlay = false;
-      WidgetsBinding._instance._perfOverlay = null;
-      WidgetsBinding._instance._frameStats = null;
+      const inst = WidgetsBinding._instance;
+      inst.buildOwner.dispose();
+      inst.pipelineOwner.dispose();
+      inst._output = null;
+      inst.mouseManager = null;
+      inst.focusManager = null;
+      inst.eventCallbacks = { key: [], mouse: [], paste: [] };
+      inst.keyInterceptors = [];
+      inst._showFrameStatsOverlay = false;
+      inst._perfOverlay = null;
+      inst._frameStats = null;
+      inst._exitResolve = null;
+      inst._exitPromise = null;
+      inst._rootElementMountedCallback = null;
+      // Remove 6 frame callbacks from FrameScheduler
+      // Amp ref: J3.cleanup removes all named callbacks
+      for (const name of ['frame-start', 'resize', 'build', 'layout', 'paint-phase', 'render-phase']) {
+        inst.frameScheduler.removeFrameCallback(name);
+      }
     }
     WidgetsBinding._instance = null;
     MouseManager.reset();
@@ -276,34 +380,25 @@ export class WidgetsBinding {
     return this._isRunning;
   }
 
-  // --- Screen buffer + renderer accessors ---
+  // --- Screen buffer + renderer accessors (backward compat) ---
 
   /**
-   * Get the screen buffer, lazy-creating if needed.
+   * Get the screen buffer. Delegates to tui.screenBuffer.
    * Amp ref: J3 screen buffer access
    */
   getScreen(): ScreenBuffer {
-    if (!this._screen) {
-      this._screen = new ScreenBuffer(
-        this._renderViewSize.width,
-        this._renderViewSize.height,
-      );
-    }
-    return this._screen;
+    return this._tui.screenBuffer;
   }
 
   /**
-   * Get the renderer, lazy-creating if needed.
+   * Get the renderer. Delegates to tui.renderer.
    */
   getRenderer(): Renderer {
-    if (!this._renderer) {
-      this._renderer = new Renderer();
-    }
-    return this._renderer;
+    return this._tui.renderer;
   }
 
   /**
-   * Set the output writer (for testing — defaults to null, meaning no output).
+   * Set the output writer (for testing -- defaults to null, meaning no output).
    * In production, call setOutput(process.stdout) to enable terminal output.
    */
   setOutput(output: OutputWriter | null): void {
@@ -340,7 +435,7 @@ export class WidgetsBinding {
   /**
    * Attach the root widget to create the three trees (widget/element/render).
    *
-   * Amp ref: J3.runApp(g) — creates MediaQuery wrapper, mounts root element
+   * Amp ref: J3.runApp(g) -- creates MediaQuery wrapper, mounts root element
    * Simplified: no MediaQuery wrapper yet (Phase 7)
    */
   attachRootWidget(widget: Widget): void {
@@ -392,6 +487,14 @@ export class WidgetsBinding {
   }
 
   /**
+   * Update root constraints (used by layout callback).
+   * Amp ref: J3 layout callback calls updateRootConstraints
+   */
+  updateRootConstraints(size: Size): void {
+    this.pipelineOwner.updateRootConstraints(size);
+  }
+
+  /**
    * DFS walk to find the first render object in the element tree.
    */
   private _findRootRenderObject(element: Element): any {
@@ -410,7 +513,7 @@ export class WidgetsBinding {
   // --- Frame phase methods (Amp: J3 4-phase pipeline) ---
 
   /**
-   * Begin frame — runs first in BUILD phase.
+   * Begin frame -- runs first in BUILD phase.
    * Determines if paint is needed this frame based on dirty state.
    *
    * Amp ref: J3.beginFrame()
@@ -422,7 +525,7 @@ export class WidgetsBinding {
       this.buildOwner.hasDirtyElements ||
       this.pipelineOwner.hasNodesNeedingLayout ||
       this.pipelineOwner.hasNodesNeedingPaint ||
-      (this._screen?.requiresFullRefresh ?? false);
+      (this._tui.screenBuffer?.requiresFullRefresh ?? false);
     this._forcePaintOnNextFrame = false;
   }
 
@@ -439,15 +542,13 @@ export class WidgetsBinding {
     this._pendingResizeEvent = null;
 
     this._renderViewSize = new Size(width, height);
-    if (this._screen) {
-      this._screen.resize(width, height);
-    }
+    this._tui.screenBuffer.resize(width, height);
     this.pipelineOwner.updateRootConstraints(this._renderViewSize);
     this._shouldPaintCurrentFrame = true;
   }
 
   /**
-   * Paint phase — paints the render tree to the screen buffer.
+   * Paint phase -- paints the render tree to the screen buffer.
    * If shouldPaintCurrentFrame is false, this is a frame skip (no-op).
    *
    * Amp ref: J3.paint()
@@ -462,8 +563,8 @@ export class WidgetsBinding {
     const rootRO = this.pipelineOwner.rootNode;
     if (!rootRO) return;
 
-    // Get or create screen buffer
-    const screen = this.getScreen();
+    // Use tui's screen buffer (Amp ref: J3.paint uses this.tui screen)
+    const screen = this._tui.screenBuffer;
     screen.clear();
 
     // DFS paint the render tree using the real PaintContext and paintRenderTree
@@ -478,16 +579,17 @@ export class WidgetsBinding {
   }
 
   /**
-   * Render phase — diffs the screen buffer and writes ANSI output.
+   * Render phase -- diffs the screen buffer and writes ANSI output.
    * Only runs if paint phase actually executed (didPaintCurrentFrame).
    *
-   * Amp ref: J3.render()
+   * Amp ref: J3.render() calls this.tui.render() which is flush()
    */
   render(): void {
     if (!this._didPaintCurrentFrame) return;
 
-    const screen = this.getScreen();
-    const renderer = this.getRenderer();
+    // Use tui's screen buffer and renderer for diffing/output
+    const screen = this._tui.screenBuffer;
+    const renderer = this._tui.renderer;
 
     // Get diff from screen buffer
     const patches = screen.getDiff();
@@ -502,7 +604,7 @@ export class WidgetsBinding {
     // Generate ANSI output
     const output = renderer.render(patches, cursor);
 
-    // Write to output if available
+    // Write to output if available (legacy OutputWriter path)
     if (this._output && output.length > 0) {
       this._output.write(output);
     }
@@ -517,11 +619,11 @@ export class WidgetsBinding {
    * Handle terminal resize.
    * Sets pending resize event and requests a frame.
    *
-   * Amp ref: WidgetsBinding resize handling — updates constraints, schedules frame
+   * Amp ref: WidgetsBinding resize handling -- updates constraints, schedules frame
    */
   handleResize(width: number, height: number): void {
     this._pendingResizeEvent = { width, height };
-    this.scheduleFrame();
+    this.frameScheduler.requestFrame();
   }
 
   /**
@@ -530,7 +632,7 @@ export class WidgetsBinding {
    */
   requestForcedPaintFrame(): void {
     this._forcePaintOnNextFrame = true;
-    this.scheduleFrame();
+    this.frameScheduler.requestFrame();
   }
 
   // --- Performance overlay (Phase 21: PERF-03) ---
@@ -566,68 +668,26 @@ export class WidgetsBinding {
     this.requestForcedPaintFrame();
   }
 
-  // --- Frame scheduling ---
+  // --- Frame scheduling (delegates to FrameScheduler) ---
 
   /**
-   * Schedule a frame (build + layout + paint + render).
-   * Tries FrameScheduler first; falls back to queueMicrotask.
+   * Schedule a frame. Delegates to FrameScheduler.requestFrame().
+   * Kept for backward compatibility with tests and code that call binding.scheduleFrame().
    *
-   * Amp ref: c9.requestFrame() — coalesced, only one pending frame at a time
+   * Amp ref: c9.requestFrame()
    */
   scheduleFrame(): void {
-    // Try to use FrameScheduler if available — it has its own coalescing
-    // so we don't need our own _frameScheduled guard for that path.
-    if (this._useFrameScheduler()) return;
-
-    // Fallback: use queueMicrotask with our own coalescing
-    if (this._frameScheduled) return;
-    this._frameScheduled = true;
-    queueMicrotask(() => this.drawFrame());
+    this.frameScheduler.requestFrame();
   }
 
-  /**
-   * Execute one full frame: beginFrame -> build -> layout -> paint -> render.
-   *
-   * Amp ref: c9.executeFrame() — iterates ["build", "layout", "paint", "render"]
-   */
-  drawFrame(): void {
-    this._frameScheduled = false;
-
-    // BEGIN FRAME
-    this.beginFrame();
-
-    // PROCESS RESIZE
-    this.processResizeIfPending();
-
-    // BUILD phase
-    this.buildOwner.buildScopes();
-    this.updateRootRenderObject();
-
-    // LAYOUT phase
-    this.pipelineOwner.updateRootConstraints(this._renderViewSize);
-    this.pipelineOwner.flushLayout();
-
-    // PAINT phase
-    this.paint();
-
-    // RENDER phase
-    this.render();
-
-    // POST-FRAME: Re-evaluate hover state after layout changes
-    // Amp ref: Pg.reestablishHoverState() registered as post-frame callback
-    if (this.mouseManager) {
-      this.mouseManager.reestablishHoverState();
-    }
-  }
+  // --- Synchronous frame execution (test helper) ---
 
   /**
    * Synchronous version for testing.
-   * Runs the SAME pipeline as drawFrame — must stay in sync.
+   * Runs the SAME pipeline as the FrameScheduler callbacks -- must stay in sync.
    * Also runs beginFrame + processResizeIfPending for full pipeline.
    */
   drawFrameSync(): void {
-    this._frameScheduled = false;
-
     // BEGIN FRAME
     this.beginFrame();
 
@@ -639,7 +699,7 @@ export class WidgetsBinding {
     this.updateRootRenderObject();
 
     // LAYOUT phase
-    this.pipelineOwner.updateRootConstraints(this._renderViewSize);
+    this.updateRootConstraints(this._renderViewSize);
     this.pipelineOwner.flushLayout();
 
     // PAINT phase
@@ -649,18 +709,38 @@ export class WidgetsBinding {
     this.render();
 
     // POST-FRAME: Re-evaluate hover state after layout changes
-    // Must match drawFrame to ensure test pipeline === production pipeline
+    // Must match FrameScheduler callbacks to ensure test pipeline === production pipeline
     if (this.mouseManager) {
       this.mouseManager.reestablishHoverState();
     }
+  }
+
+  // --- waitForExit / stop / cleanup pattern (Amp ref: J3.stop, J3.cleanup) ---
+
+  /**
+   * Wait for the application to exit.
+   * Returns a promise that resolves when stop() is called.
+   * Amp ref: J3 exit promise pattern
+   */
+  waitForExit(): Promise<void> {
+    if (!this._exitPromise) {
+      this._exitPromise = new Promise<void>((resolve) => {
+        this._exitResolve = resolve;
+      });
+    }
+    return this._exitPromise;
   }
 
   /**
    * Stop the binding.
-   * Amp ref: J3.stop()
+   * Amp ref: J3.stop() -- sets isRunning = false, resolves exit promise
    */
   stop(): void {
     this._isRunning = false;
+    if (this._exitResolve) {
+      this._exitResolve();
+      this._exitResolve = null;
+    }
     if (this._rootElement) {
       this._rootElement.unmount();
       this._rootElement = null;
@@ -669,78 +749,61 @@ export class WidgetsBinding {
     this.pipelineOwner.dispose();
   }
 
+  /**
+   * Full cleanup -- unmount, dispose, remove callbacks, deinit terminal.
+   * Amp ref: J3.cleanup()
+   */
+  async cleanup(): Promise<void> {
+    this._isRunning = false;
+
+    if (this._rootElement) {
+      this._rootElement.unmount();
+      this._rootElement = null;
+    }
+
+    this.buildOwner.dispose();
+    this.pipelineOwner.dispose();
+
+    if (this.focusManager) {
+      this.focusManager.dispose();
+    }
+    if (this.mouseManager) {
+      this.mouseManager.dispose();
+    }
+
+    // Remove 6 frame callbacks
+    // Amp ref: J3.cleanup removes all named callbacks
+    for (const name of ['frame-start', 'resize', 'build', 'layout', 'paint-phase', 'render-phase']) {
+      this.frameScheduler.removeFrameCallback(name);
+    }
+
+    // Dispose terminal
+    if (this._tui.isInitialized) {
+      this._tui.dispose();
+    }
+  }
+
+  /**
+   * Set a callback to be called when the root element is mounted.
+   * Amp ref: J3.setRootElementMountedCallback
+   */
+  setRootElementMountedCallback(callback: () => void): void {
+    this._rootElementMountedCallback = callback;
+  }
+
   // --- Private helpers ---
-
-  /**
-   * Try to register frame callbacks with FrameScheduler.
-   * Graceful degradation: if FrameScheduler is not available (05-01 not done),
-   * falls through to queueMicrotask fallback.
-   */
-  private _tryRegisterFrameCallbacks(): void {
-    // FrameScheduler (Plan 05-01) may not be available yet.
-    // When it is, this method will register the 6 phase callbacks:
-    //   BUILD phase, priority -2000: "frame-start" -> beginFrame()
-    //   BUILD phase, priority -1000: "resize" -> processResizeIfPending()
-    //   BUILD phase, priority 0: "build" -> buildOwner.buildScopes() + updateRootRenderObject()
-    //   LAYOUT phase, priority 0: "layout" -> updateRootConstraints() + pipelineOwner.flushLayout()
-    //   PAINT phase, priority 0: "paint" -> paint()
-    //   RENDER phase, priority 0: "render" -> render()
-    try {
-      // Attempt dynamic import of FrameScheduler
-      const mod = require('../scheduler/frame-scheduler');
-      if (mod && mod.FrameScheduler) {
-        const scheduler = mod.FrameScheduler.instance;
-        // Register callbacks using addFrameCallback(id, callback, phase, priority, name)
-        scheduler.addFrameCallback('frame-start', () => this.beginFrame(), 'build', -2000, 'frame-start');
-        scheduler.addFrameCallback('resize', () => this.processResizeIfPending(), 'build', -1000, 'resize');
-        scheduler.addFrameCallback('build', () => {
-          this.buildOwner.buildScopes();
-          this.updateRootRenderObject();
-        }, 'build', 0, 'build');
-        scheduler.addFrameCallback('layout', () => {
-          this.pipelineOwner.updateRootConstraints(this._renderViewSize);
-          this.pipelineOwner.flushLayout();
-        }, 'layout', 0, 'layout');
-        scheduler.addFrameCallback('paint-phase', () => this.paint(), 'paint', 0, 'paint');
-        scheduler.addFrameCallback('render-phase', () => {
-          this.render();
-          // POST-FRAME: Re-evaluate hover state after layout changes
-          if (this.mouseManager) {
-            this.mouseManager.reestablishHoverState();
-          }
-        }, 'render', 0, 'render');
-      }
-    } catch (_e) {
-      // FrameScheduler not available yet — will use queueMicrotask fallback
-    }
-  }
-
-  /**
-   * Try to use FrameScheduler for frame scheduling.
-   * Returns true if successful, false if FrameScheduler is not available.
-   */
-  private _useFrameScheduler(): boolean {
-    try {
-      const mod = require('../scheduler/frame-scheduler');
-      if (mod && mod.FrameScheduler) {
-        mod.FrameScheduler.instance.requestFrame();
-        return true;
-      }
-    } catch (_e) {
-      // Not available
-    }
-    return false;
-  }
+  // (_tryRegisterFrameCallbacks and _useFrameScheduler REMOVED --
+  //  replaced by static import and direct constructor registration)
 }
 
 // ---------------------------------------------------------------------------
 // runApp (Amp: cz8)
 //
-// Top-level entry point. Creates/gets the binding singleton,
+// Top-level entry point. Gets the binding singleton,
 // wraps the root widget in MediaQuery, attaches it, and schedules the first frame.
 //
 // Amp ref: async function cz8(g, t) { let b = J3.instance; await b.runApp(g); }
-// Phase 10 upgrade: async, MediaQuery wrapping, SIGWINCH handler
+// Phase 23-03: Thin wrapper matching cz8 pattern
 // ---------------------------------------------------------------------------
 
 import { MediaQuery, MediaQueryData } from '../widgets/media-query';
@@ -762,26 +825,43 @@ export interface RunAppOptions {
    * When true, the process stays alive to receive keyboard/mouse input.
    */
   terminal?: boolean;
+
+  /**
+   * Callback invoked when the root element has been mounted.
+   * Amp ref: cz8 options.onRootElementMounted
+   */
+  onRootElementMounted?: () => void;
 }
 
+/**
+ * Standalone runApp -- thin wrapper matching Amp's cz8 pattern.
+ * Gets the WidgetsBinding singleton, optionally sets callbacks,
+ * then delegates to the binding's internal runApp logic.
+ *
+ * Amp ref: async function cz8(g, t) { let b = J3.instance; ... await b.runApp(g); }
+ */
 export async function runApp(widget: Widget, options?: RunAppOptions): Promise<WidgetsBinding> {
   const binding = WidgetsBinding.instance;
   const inTest = isTestEnvironment();
   const enableTerminal = options?.terminal ?? !inTest;
+
+  // Set callbacks if provided
+  if (options?.onRootElementMounted) {
+    binding.setRootElementMountedCallback(options.onRootElementMounted);
+  }
 
   // Set output BEFORE the first frame so the render phase can write
   if (options?.output) {
     binding.setOutput(options.output);
   }
 
-  // Determine terminal size — use reasonable defaults in test mode
+  // Determine terminal size -- use reasonable defaults in test mode
   let cols = 80;
   let rows = 24;
   let platform: any = null;
 
   if (!inTest) {
     try {
-      const { BunPlatform } = require('../terminal/platform');
       platform = new BunPlatform();
       const size = platform.getTerminalSize();
       cols = size.columns;
@@ -800,16 +880,15 @@ export async function runApp(widget: Widget, options?: RunAppOptions): Promise<W
   binding.attachRootWidget(wrappedWidget);
 
   // --- Terminal initialization (production only) ---
-  // Enable raw mode, alt screen, and wire stdin → InputParser → EventDispatcher.
+  // Enable raw mode, alt screen, and wire stdin -> InputParser -> EventDispatcher.
   // Raw mode + stdin listener keeps the Bun event loop alive so the process
   // doesn't exit after the first frame.
   if (enableTerminal && platform) {
-    // Enable raw mode — this keeps stdin open (process stays alive)
+    // Enable raw mode -- this keeps stdin open (process stays alive)
     platform.enableRawMode();
 
     // Enter alt screen + hide cursor
     try {
-      const { Renderer } = require('../terminal/renderer');
       const renderer = new Renderer();
       const initSequence =
         renderer.enterAltScreen() +
@@ -821,7 +900,7 @@ export async function runApp(widget: Widget, options?: RunAppOptions): Promise<W
       // Renderer not available, skip terminal modes
     }
 
-    // Wire stdin → InputBridge → EventDispatcher → FocusManager → widgets
+    // Wire stdin -> InputBridge -> EventDispatcher -> FocusManager -> widgets
     try {
       const { InputBridge } = require('../input/input-bridge');
       const { EventDispatcher } = require('../input/event-dispatcher');
@@ -833,7 +912,7 @@ export async function runApp(widget: Widget, options?: RunAppOptions): Promise<W
       (binding as any)._inputBridge = bridge;
 
       // Register default Ctrl+C interceptor as safety net.
-      // In raw mode, SIGINT is not generated — Ctrl+C arrives as byte 0x03
+      // In raw mode, SIGINT is not generated -- Ctrl+C arrives as byte 0x03
       // which InputParser emits as key='c', ctrlKey=true.
       // Apps can handle Ctrl+C themselves (and return 'handled' to suppress this).
       const dispatcher = EventDispatcher.instance;
@@ -850,10 +929,9 @@ export async function runApp(widget: Widget, options?: RunAppOptions): Promise<W
     // Store platform on binding for cleanup
     (binding as any)._platform = platform;
 
-    // Clean exit handler — restore terminal state
+    // Clean exit handler -- restore terminal state
     const cleanup = () => {
       try {
-        const { Renderer } = require('../terminal/renderer');
         const renderer = new Renderer();
         const cleanupSequence =
           renderer.showCursor() +
@@ -900,6 +978,6 @@ export async function runApp(widget: Widget, options?: RunAppOptions): Promise<W
 
   // Force paint on first frame to ensure content is rendered
   binding.requestForcedPaintFrame();
-  binding.scheduleFrame();
+  binding.frameScheduler.requestFrame();
   return binding;
 }
