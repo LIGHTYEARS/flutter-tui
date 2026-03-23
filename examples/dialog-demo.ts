@@ -1,19 +1,22 @@
 // Dialog Demo — Demonstrates modal dialog overlays using Stack + Positioned.
 //
-// Shows a main content area with a list of items. Press Enter to open a
-// confirmation dialog overlay, Escape to close. The dialog demonstrates:
+// A project browser where you can navigate a list of projects. Press Enter
+// to open a detail popup showing full project information. Press Escape to
+// close the popup and return to the list.
+//
+// This example demonstrates:
 // - Stack widget for layered overlay positioning
 // - Positioned widget for centering the dialog
-// - Container + BoxDecoration for dialog border/background
+// - Container + BoxDecoration for dialog styling (border, background)
 // - FocusNode for keyboard interaction
-// - Composing widgets to build complex UI patterns
+// - State-driven UI: same widget tree switches between list and overlay mode
 //
 // Controls:
 // - j/ArrowDown: Move selection down
 // - k/ArrowUp: Move selection up
-// - Enter: Open dialog for selected item
-// - y: Confirm (in dialog)
-// - n/Escape: Cancel (in dialog)
+// - Enter: Open detail popup for selected project
+// - Escape: Close popup
+// - d: Delete selected project (from list view)
 // - q: Quit
 //
 // Run with: bun run examples/dialog-demo.ts
@@ -32,7 +35,6 @@ import { Container } from '../src/widgets/container';
 import { Divider } from '../src/widgets/divider';
 import { Expanded } from '../src/widgets/flexible';
 import { Stack, Positioned } from '../src/widgets/stack';
-import { Center } from '../src/widgets/center';
 import { TextSpan } from '../src/core/text-span';
 import { TextStyle } from '../src/core/text-style';
 import { Color } from '../src/core/color';
@@ -49,19 +51,98 @@ import type { KeyEvent, KeyEventResult } from '../src/input/events';
 // Data
 // ---------------------------------------------------------------------------
 
-interface Item {
+export interface Project {
   name: string;
   description: string;
-  status: 'active' | 'archived' | 'deleted';
+  language: string;
+  stars: number;
+  status: 'active' | 'archived' | 'beta';
+  author: string;
+  license: string;
+  version: string;
 }
 
-const ITEMS: Item[] = [
-  { name: 'Project Alpha', description: 'Main product codebase', status: 'active' },
-  { name: 'Design Docs', description: 'UI/UX specifications', status: 'active' },
-  { name: 'Legacy API', description: 'Deprecated REST endpoints', status: 'archived' },
-  { name: 'Test Suite', description: 'Integration test configs', status: 'active' },
-  { name: 'Old Database', description: 'PostgreSQL 9.x backup', status: 'archived' },
-  { name: 'Temp Files', description: 'Build artifacts and cache', status: 'active' },
+const PROJECTS: Project[] = [
+  {
+    name: 'flutter-tui',
+    description: 'A Flutter-inspired terminal UI framework for TypeScript',
+    language: 'TypeScript',
+    stars: 1200,
+    status: 'active',
+    author: 'TUI Team',
+    license: 'MIT',
+    version: '1.3.0',
+  },
+  {
+    name: 'ink-react',
+    description: 'React for interactive command-line apps',
+    language: 'TypeScript',
+    stars: 25000,
+    status: 'active',
+    author: 'Vadim Demedes',
+    license: 'MIT',
+    version: '4.4.1',
+  },
+  {
+    name: 'blessed-contrib',
+    description: 'Dashboard widgets for blessed terminal library',
+    language: 'JavaScript',
+    stars: 15000,
+    status: 'archived',
+    author: 'Yaron Naveh',
+    license: 'MIT',
+    version: '4.11.0',
+  },
+  {
+    name: 'bubbletea',
+    description: 'A powerful TUI framework based on The Elm Architecture',
+    language: 'Go',
+    stars: 28000,
+    status: 'active',
+    author: 'Charmbracelet',
+    license: 'MIT',
+    version: '1.2.4',
+  },
+  {
+    name: 'ratatui',
+    description: 'Rust library for building rich terminal user interfaces',
+    language: 'Rust',
+    stars: 12000,
+    status: 'active',
+    author: 'ratatui-org',
+    license: 'MIT',
+    version: '0.29.0',
+  },
+  {
+    name: 'textual',
+    description: 'TUI framework for Python using Rich rendering',
+    language: 'Python',
+    stars: 26000,
+    status: 'active',
+    author: 'Textualize',
+    license: 'MIT',
+    version: '0.89.0',
+  },
+  {
+    name: 'tview',
+    description: 'Terminal UI framework with rich interactive widgets',
+    language: 'Go',
+    stars: 10000,
+    status: 'archived',
+    author: 'rivo',
+    license: 'MIT',
+    version: '0.64.0',
+  },
+  {
+    name: 'terminal-kit',
+    description: 'Full-featured terminal lib for Node.js',
+    language: 'JavaScript',
+    stars: 3000,
+    status: 'beta',
+    author: 'cronvel',
+    license: 'MIT',
+    version: '3.1.1',
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -74,10 +155,16 @@ const dimStyle = new TextStyle({ dim: true });
 const selectedStyle = new TextStyle({ bold: true, foreground: Color.brightWhite });
 const activeStyle = new TextStyle({ foreground: Color.green });
 const archivedStyle = new TextStyle({ foreground: Color.yellow });
-const dialogTitleStyle = new TextStyle({ bold: true, foreground: Color.red });
-const dialogTextStyle = new TextStyle();
-const dialogKeyStyle = new TextStyle({ bold: true, foreground: Color.green });
+const betaStyle = new TextStyle({ foreground: Color.magenta });
 const selectedBg = Color.blue;
+
+// Dialog styles
+const dialogTitleStyle = new TextStyle({ bold: true, foreground: Color.cyan });
+const dialogLabelStyle = new TextStyle({ bold: true, foreground: Color.yellow });
+const dialogValueStyle = new TextStyle();
+const dialogDescStyle = new TextStyle({ italic: true, dim: true });
+const dialogStarsStyle = new TextStyle({ foreground: Color.yellow, bold: true });
+const dialogHintStyle = new TextStyle({ dim: true });
 
 // ---------------------------------------------------------------------------
 // Helper
@@ -87,6 +174,15 @@ function txt(content: string, style?: TextStyle): Text {
   return new Text({
     text: new TextSpan({ text: content, style: style ?? normalStyle }),
   });
+}
+
+function statusStyle(status: string): TextStyle {
+  switch (status) {
+    case 'active': return activeStyle;
+    case 'archived': return archivedStyle;
+    case 'beta': return betaStyle;
+    default: return dimStyle;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -100,15 +196,15 @@ export class DialogDemo extends StatefulWidget {
 }
 
 export class DialogDemoState extends State<DialogDemo> {
-  private _items: Item[] = [];
+  private _projects: Project[] = [];
   private _selectedIndex: number = 0;
-  private _dialogOpen: boolean = false;
-  private _lastAction: string = '';
+  private _popupOpen: boolean = false;
+  private _statusMessage: string = '';
   private _focusNode: FocusNode | null = null;
 
   initState(): void {
     super.initState();
-    this._items = ITEMS.map((item) => ({ ...item }));
+    this._projects = PROJECTS.map((p) => ({ ...p }));
     this._focusNode = new FocusNode({
       debugLabel: 'DialogDemoFocus',
       onKey: (event: KeyEvent): KeyEventResult => {
@@ -129,27 +225,23 @@ export class DialogDemoState extends State<DialogDemo> {
     super.dispose();
   }
 
-  get items(): readonly Item[] { return this._items; }
+  get projects(): readonly Project[] { return this._projects; }
   get selectedIndex(): number { return this._selectedIndex; }
-  get dialogOpen(): boolean { return this._dialogOpen; }
-  get lastAction(): string { return this._lastAction; }
+  get popupOpen(): boolean { return this._popupOpen; }
 
   private _handleKey(key: string): 'handled' | 'ignored' {
-    if (this._dialogOpen) {
-      return this._handleDialogKey(key);
+    if (this._popupOpen) {
+      return this._handlePopupKey(key);
     }
     return this._handleListKey(key);
   }
 
-  private _handleDialogKey(key: string): 'handled' | 'ignored' {
+  private _handlePopupKey(key: string): 'handled' | 'ignored' {
     switch (key) {
-      case 'y':
-        this._confirmDelete();
-        return 'handled';
-      case 'n':
       case 'Escape':
-        this._dialogOpen = false;
-        this._lastAction = 'Cancelled';
+      case 'Enter':
+      case 'q':
+        this._popupOpen = false;
         return 'handled';
       default:
         return 'ignored';
@@ -160,14 +252,20 @@ export class DialogDemoState extends State<DialogDemo> {
     switch (key) {
       case 'j':
       case 'ArrowDown':
-        if (this._selectedIndex < this._items.length - 1) this._selectedIndex++;
+        if (this._selectedIndex < this._projects.length - 1) this._selectedIndex++;
         return 'handled';
       case 'k':
       case 'ArrowUp':
         if (this._selectedIndex > 0) this._selectedIndex--;
         return 'handled';
       case 'Enter':
-        if (this._items.length > 0) this._dialogOpen = true;
+        if (this._projects.length > 0) {
+          this._popupOpen = true;
+          this._statusMessage = `Viewing: ${this._projects[this._selectedIndex]!.name}`;
+        }
+        return 'handled';
+      case 'd':
+        this._deleteSelected();
         return 'handled';
       case 'q':
         process.exit(0);
@@ -177,40 +275,36 @@ export class DialogDemoState extends State<DialogDemo> {
     }
   }
 
-  private _confirmDelete(): void {
-    const item = this._items[this._selectedIndex];
-    if (item) {
-      this._lastAction = `Deleted: ${item.name}`;
-      this._items.splice(this._selectedIndex, 1);
-      if (this._selectedIndex >= this._items.length && this._items.length > 0) {
-        this._selectedIndex = this._items.length - 1;
-      }
+  private _deleteSelected(): void {
+    if (this._projects.length === 0) return;
+    const removed = this._projects.splice(this._selectedIndex, 1)[0];
+    if (removed) this._statusMessage = `Removed: ${removed.name}`;
+    if (this._selectedIndex >= this._projects.length && this._projects.length > 0) {
+      this._selectedIndex = this._projects.length - 1;
     }
-    this._dialogOpen = false;
   }
 
   build(_context: BuildContext): Widget {
     const mainContent = this._buildMainContent();
 
-    if (!this._dialogOpen) {
+    if (!this._popupOpen) {
       return mainContent;
     }
 
-    // Overlay the dialog on top of main content using Stack
-    const selectedItem = this._items[this._selectedIndex];
-    const dialogWidget = this._buildDialog(selectedItem?.name ?? '');
+    // Overlay the detail popup on top of the list
+    const project = this._projects[this._selectedIndex];
+    if (!project) return mainContent;
 
     return new Stack({
       fit: 'expand',
       children: [
         mainContent,
-        // Center the dialog using Positioned with equal offsets
         new Positioned({
-          left: 10,
-          top: 4,
-          right: 10,
-          bottom: 4,
-          child: dialogWidget,
+          left: 5,
+          top: 2,
+          right: 5,
+          bottom: 2,
+          child: this._buildDetailPopup(project),
         }),
       ],
     });
@@ -221,11 +315,12 @@ export class DialogDemoState extends State<DialogDemo> {
       new BorderSide({ color: Color.cyan, style: 'rounded' }),
     );
 
-    const listItems: Widget[] = this._items.map((item, i) => {
+    const listItems: Widget[] = this._projects.map((project, i) => {
       const isSelected = i === this._selectedIndex;
-      const statusStyle = item.status === 'active' ? activeStyle : archivedStyle;
-      const textSt = isSelected ? selectedStyle : normalStyle;
       const pointer = isSelected ? '>' : ' ';
+      const textSt = isSelected ? selectedStyle : normalStyle;
+      const sSt = statusStyle(project.status);
+      const starsTxt = `${project.stars >= 1000 ? `${(project.stars / 1000).toFixed(1)}k` : project.stars}`;
 
       return new Container({
         decoration: isSelected
@@ -235,9 +330,13 @@ export class DialogDemoState extends State<DialogDemo> {
           children: [
             txt(` ${pointer} `, isSelected ? selectedStyle : dimStyle),
             new Expanded({
-              child: txt(item.name, textSt),
+              child: txt(project.name, textSt),
             }),
-            txt(`[${item.status}]`, statusStyle),
+            txt(project.language, dimStyle),
+            txt('  '),
+            txt(`★${starsTxt}`, isSelected ? selectedStyle : new TextStyle({ foreground: Color.yellow })),
+            txt('  '),
+            txt(`[${project.status}]`, isSelected ? selectedStyle : sSt),
             txt(' '),
           ],
         }),
@@ -245,14 +344,14 @@ export class DialogDemoState extends State<DialogDemo> {
     });
 
     if (listItems.length === 0) {
-      listItems.push(txt('  No items remaining.', dimStyle));
+      listItems.push(txt('  No projects. All removed.', dimStyle));
     }
 
     return new Column({
       children: [
         new Container({
           decoration: new BoxDecoration({ border }),
-          child: txt(' Item Manager ', titleStyle),
+          child: txt(' TUI Frameworks Browser ', titleStyle),
         }),
         new Divider(),
         new Expanded({
@@ -262,16 +361,18 @@ export class DialogDemoState extends State<DialogDemo> {
           }),
         }),
         new Divider(),
-        txt(this._lastAction.length > 0 ? ` ${this._lastAction}` : '', dimStyle),
-        txt(' j/k:navigate  Enter:delete  q:quit', dimStyle),
+        txt(this._statusMessage.length > 0 ? ` ${this._statusMessage}` : '', dimStyle),
+        txt(' j/k:navigate  Enter:details  d:remove  q:quit', dimStyle),
       ],
     });
   }
 
-  private _buildDialog(itemName: string): Widget {
+  private _buildDetailPopup(project: Project): Widget {
     const dialogBorder = Border.all(
-      new BorderSide({ color: Color.red, style: 'rounded' }),
+      new BorderSide({ color: Color.cyan, style: 'rounded' }),
     );
+
+    const starsText = `★ ${project.stars.toLocaleString()}`;
 
     return new Container({
       decoration: new BoxDecoration({
@@ -282,27 +383,44 @@ export class DialogDemoState extends State<DialogDemo> {
       child: new Column({
         mainAxisSize: 'min',
         children: [
-          txt(' Confirm Delete ', dialogTitleStyle),
-          new Divider(),
-          new SizedBox({ height: 1 }),
-          txt(` Are you sure you want to delete "${itemName}"?`, dialogTextStyle),
-          new SizedBox({ height: 1 }),
-          txt(' This action cannot be undone.', dimStyle),
+          // Title
+          txt(` ${project.name} `, dialogTitleStyle),
+          txt(` ${project.description}`, dialogDescStyle),
           new SizedBox({ height: 1 }),
           new Divider(),
+          new SizedBox({ height: 1 }),
+          // Detail fields
+          this._detailRow('Language', project.language),
+          this._detailRow('Author', project.author),
+          this._detailRow('Version', `v${project.version}`),
+          this._detailRow('License', project.license),
           new Row({
             children: [
-              txt('  Press '),
-              txt('[y]', dialogKeyStyle),
-              txt(' to confirm, '),
-              txt('[n]', dialogKeyStyle),
-              txt(' or '),
-              txt('[Esc]', dialogKeyStyle),
-              txt(' to cancel'),
+              txt('  Stars:    ', dialogLabelStyle),
+              txt(starsText, dialogStarsStyle),
             ],
           }),
+          new Row({
+            children: [
+              txt('  Status:   ', dialogLabelStyle),
+              txt(project.status, statusStyle(project.status)),
+            ],
+          }),
+          new SizedBox({ height: 1 }),
+          new Divider(),
+          txt('  Press Esc or Enter to close', dialogHintStyle),
         ],
       }),
+    });
+  }
+
+  private _detailRow(label: string, value: string): Widget {
+    const paddedLabel = (label + ':').padEnd(10);
+    return new Row({
+      children: [
+        txt(`  ${paddedLabel} `, dialogLabelStyle),
+        txt(value, dialogValueStyle),
+      ],
     });
   }
 }
@@ -311,7 +429,7 @@ export class DialogDemoState extends State<DialogDemo> {
 // Exports
 // ---------------------------------------------------------------------------
 
-export { txt, ITEMS };
+export { txt, PROJECTS };
 
 // Only run the app when executed directly
 if (import.meta.main) {
