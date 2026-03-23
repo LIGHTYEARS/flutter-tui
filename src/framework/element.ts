@@ -704,6 +704,11 @@ export class MultiChildRenderObjectElement extends RenderObjectElement {
           } else if (typeof this.renderObject.adoptChild === 'function') {
             this.renderObject.adoptChild(elem.renderObject);
           }
+          // Re-apply parent data after insertion.
+          // setupParentData (called by insert/adoptChild) may have created a fresh
+          // FlexParentData, overwriting values set by ParentDataElement._applyParentData()
+          // during _mountChild. Re-applying restores flex/fit values.
+          this._reapplyParentData(elem);
         }
       }
     }
@@ -883,6 +888,8 @@ export class MultiChildRenderObjectElement extends RenderObjectElement {
       } else if (typeof this.renderObject.adoptChild === 'function') {
         this.renderObject.adoptChild(elem.renderObject);
       }
+      // Re-apply parent data after insertion (see mount() comment)
+      this._reapplyParentData(elem);
     }
     return elem;
   }
@@ -897,6 +904,23 @@ export class MultiChildRenderObjectElement extends RenderObjectElement {
   private _mountChild(child: Element): void {
     if ('mount' in child && typeof (child as any).mount === 'function') {
       (child as any).mount();
+    }
+  }
+
+  /**
+   * Re-apply parent data after a child render object has been adopted.
+   *
+   * During mount, ParentDataElement._applyParentData() runs before the
+   * render object is inserted into its parent. The insert/adoptChild call
+   * triggers setupParentData which creates a fresh ParentData instance,
+   * overwriting values like flex/fit. This method walks the child element
+   * to find ParentDataElement ancestors and re-applies their data.
+   */
+  private _reapplyParentData(elem: Element): void {
+    // If the element itself is a ParentDataElement-like (has _applyParentData),
+    // call it directly to re-apply flex/fit/etc.
+    if (typeof (elem as any)._applyParentData === 'function') {
+      (elem as any)._applyParentData();
     }
   }
 }

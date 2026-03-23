@@ -143,7 +143,8 @@ export class PaintContext {
     // For wide chars, ensure the full width is within clip
     if (!this.isInClip(x, y, effectiveWidth)) return;
 
-    this.screen.setChar(x, y, char, style, effectiveWidth);
+    const merged = this._mergeWithExistingBg(x, y, style);
+    this.screen.setChar(x, y, char, merged, effectiveWidth);
   }
 
   /**
