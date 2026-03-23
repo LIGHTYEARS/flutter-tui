@@ -5,7 +5,8 @@
 import { Offset, Size } from '../core/types';
 import { BoxConstraints } from '../core/box-constraints';
 import { Color } from '../core/color';
-import { RenderBox, PaintContext } from '../framework/render-object';
+import { RenderBox } from '../framework/render-object';
+import { PaintContext } from '../scheduler/paint-context';
 
 // ---------------------------------------------------------------------------
 // Decoration types
@@ -107,54 +108,6 @@ export class BoxDecoration {
       (this.border !== undefined && other.border !== undefined && this.border.equals(other.border));
     return colorEq && borderEq;
   }
-}
-
-// ---------------------------------------------------------------------------
-// Unicode box-drawing characters
-// ---------------------------------------------------------------------------
-
-/** Box-drawing character sets indexed by border style. */
-const BOX_CHARS: Record<
-  BorderStyle,
-  {
-    topLeft: string;
-    topRight: string;
-    bottomLeft: string;
-    bottomRight: string;
-    horizontal: string;
-    vertical: string;
-  }
-> = {
-  rounded: {
-    topLeft: '\u256D',     // ╭
-    topRight: '\u256E',    // ╮
-    bottomLeft: '\u2570',  // ╰
-    bottomRight: '\u256F', // ╯
-    horizontal: '\u2500',  // ─
-    vertical: '\u2502',    // │
-  },
-  solid: {
-    topLeft: '\u250C',     // ┌
-    topRight: '\u2510',    // ┐
-    bottomLeft: '\u2514',  // └
-    bottomRight: '\u2518', // ┘
-    horizontal: '\u2500',  // ─
-    vertical: '\u2502',    // │
-  },
-};
-
-// ---------------------------------------------------------------------------
-// Minimal PaintContext extension for decoration painting
-// ---------------------------------------------------------------------------
-
-/**
- * Extended PaintContext interface for decoration painting.
- * Full PaintContext is defined in Phase 5; this extends the minimal version
- * with the methods needed for decoration rendering.
- */
-export interface DecorationPaintContext extends PaintContext {
-  setChar?(col: number, row: number, char: string, style?: unknown, width?: number): void;
-  getSize?(): { width: number; height: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -264,12 +217,7 @@ export class RenderDecoratedBox extends RenderBox {
   }
 
   paint(context: PaintContext, offset: Offset): void {
-    const ctx = context as DecorationPaintContext;
-
-    // Paint background and border if PaintContext supports setChar
-    if (ctx.setChar) {
-      this._paintDecoration(ctx, offset);
-    }
+    this._paintDecoration(context, offset);
 
     // Paint child
     if (this._child) {
@@ -278,9 +226,9 @@ export class RenderDecoratedBox extends RenderBox {
   }
 
   /**
-   * Paint the decoration (background color + border) using setChar.
+   * Paint the decoration (background color + border) using PaintContext API.
    */
-  private _paintDecoration(ctx: DecorationPaintContext, offset: Offset): void {
+  private _paintDecoration(ctx: PaintContext, offset: Offset): void {
     const w = this.size.width;
     const h = this.size.height;
     const col = offset.col;
@@ -293,70 +241,21 @@ export class RenderDecoratedBox extends RenderBox {
       const border = this._decoration.border;
       const innerLeft = col + (border?.left.width ?? 0);
       const innerTop = row + (border?.top.width ?? 0);
-      const innerRight = col + w - (border?.right.width ?? 0);
-      const innerBottom = row + h - (border?.bottom.width ?? 0);
+      const innerW = w - (border?.horizontal ?? 0);
+      const innerH = h - (border?.vertical ?? 0);
 
-      for (let r = innerTop; r < innerBottom; r++) {
-        for (let c = innerLeft; c < innerRight; c++) {
-          ctx.setChar!(c, r, ' ', { bg: this._decoration.color });
-        }
+      if (innerW > 0 && innerH > 0) {
+        ctx.fillRect(innerLeft, innerTop, innerW, innerH, ' ', { bg: this._decoration.color });
       }
     }
 
     // Paint border
     if (this._decoration.border) {
-      this._paintBorder(ctx, col, row, w, h, this._decoration.border);
-    }
-  }
-
-  /**
-   * Paint border using Unicode box-drawing characters.
-   * Uses the style from the top side to determine the character set.
-   */
-  private _paintBorder(
-    ctx: DecorationPaintContext,
-    col: number,
-    row: number,
-    w: number,
-    h: number,
-    border: Border,
-  ): void {
-    // Use top side style for the corner/line character set
-    const style = border.top.style;
-    const chars = BOX_CHARS[style];
-    const borderColor = border.top.color;
-    const colorStyle = borderColor.equals(Color.defaultColor) ? undefined : { fg: borderColor };
-
-    // Only paint if there's actual border width
-    const hasTop = border.top.width > 0;
-    const hasBottom = border.bottom.width > 0;
-    const hasLeft = border.left.width > 0;
-    const hasRight = border.right.width > 0;
-
-    if (h < 1 || w < 1) return;
-
-    // Top border
-    if (hasTop) {
-      if (hasLeft) ctx.setChar!(col, row, chars.topLeft, colorStyle);
-      for (let c = col + (hasLeft ? 1 : 0); c < col + w - (hasRight ? 1 : 0); c++) {
-        ctx.setChar!(c, row, chars.horizontal, colorStyle);
-      }
-      if (hasRight) ctx.setChar!(col + w - 1, row, chars.topRight, colorStyle);
-    }
-
-    // Left and right vertical borders
-    for (let r = row + (hasTop ? 1 : 0); r < row + h - (hasBottom ? 1 : 0); r++) {
-      if (hasLeft) ctx.setChar!(col, r, chars.vertical, colorStyle);
-      if (hasRight) ctx.setChar!(col + w - 1, r, chars.vertical, colorStyle);
-    }
-
-    // Bottom border
-    if (hasBottom && h > 1) {
-      if (hasLeft) ctx.setChar!(col, row + h - 1, chars.bottomLeft, colorStyle);
-      for (let c = col + (hasLeft ? 1 : 0); c < col + w - (hasRight ? 1 : 0); c++) {
-        ctx.setChar!(c, row + h - 1, chars.horizontal, colorStyle);
-      }
-      if (hasRight) ctx.setChar!(col + w - 1, row + h - 1, chars.bottomRight, colorStyle);
+      const border = this._decoration.border;
+      const style = border.top.style;
+      const borderColor = border.top.color;
+      const color = borderColor.equals(Color.defaultColor) ? undefined : borderColor;
+      ctx.drawBorder(col, row, w, h, style, color);
     }
   }
 

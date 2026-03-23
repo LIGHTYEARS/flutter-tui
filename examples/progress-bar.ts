@@ -208,6 +208,6 @@ export class ProgressBarState extends State<ProgressBarApp> {
 export const createProgressBarApp = (): ProgressBarApp => new ProgressBarApp();
 
 // Only run the app when executed directly
-if (typeof process !== 'undefined' && !process.env.BUN_TEST) {
+if (import.meta.main) {
   runApp(new ProgressBarApp(), { output: process.stdout });
 }

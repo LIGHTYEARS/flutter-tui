@@ -10,8 +10,7 @@
 // - Row/Column layout for form structure
 // - Button for submit action
 //
-// Usage (conceptual — requires full binding to render):
-//   bun run examples/input-form.ts
+// Run with: bun run examples/input-form.ts
 
 import {
   StatefulWidget,
@@ -20,6 +19,7 @@ import {
   Widget,
   type BuildContext,
 } from '../src/framework/widget';
+import { runApp } from '../src/framework/binding';
 import { Text } from '../src/widgets/text';
 import { Column, Row } from '../src/widgets/flex';
 import { SizedBox } from '../src/widgets/sized-box';
@@ -245,3 +245,8 @@ class InputFormState extends State<InputForm> {
 // ---------------------------------------------------------------------------
 
 export { textWidget };
+
+// Only run the app when executed directly
+if (import.meta.main) {
+  runApp(new InputForm(), { output: process.stdout });
+}

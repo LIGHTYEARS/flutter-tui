@@ -5,10 +5,10 @@
 // returns a [left, right] widget pair. In wide mode these appear
 // side-by-side; in narrow mode they stack vertically.
 //
-// Usage (conceptual — requires full binding to render):
-//   bun run examples/table-demo.ts
+// Run with: bun run examples/table-demo.ts
 
 import { StatelessWidget, Widget, type BuildContext } from '../src/framework/widget';
+import { runApp } from '../src/framework/binding';
 import { Text } from '../src/widgets/text';
 import { Column } from '../src/widgets/flex';
 import { Container } from '../src/widgets/container';
@@ -121,3 +121,8 @@ export class TableDemo extends StatelessWidget {
 
 export { LANGUAGES, styledText };
 export type { Language };
+
+// Only run the app when executed directly
+if (import.meta.main) {
+  runApp(new TableDemo(), { output: process.stdout });
+}

@@ -225,6 +225,6 @@ export class ClockState extends State<ClockApp> {
 export const createClockApp = (): ClockApp => new ClockApp();
 
 // Only run the app when executed directly
-if (typeof process !== 'undefined' && !process.env.BUN_TEST) {
+if (import.meta.main) {
   runApp(new ClockApp(), { output: process.stdout });
 }

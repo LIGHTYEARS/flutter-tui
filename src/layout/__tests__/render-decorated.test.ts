@@ -8,12 +8,13 @@ import {
   BoxDecoration,
   Border,
   BorderSide,
-  DecorationPaintContext,
 } from '../render-decorated';
 import { BoxConstraints } from '../../core/box-constraints';
 import { Offset, Size } from '../../core/types';
 import { Color } from '../../core/color';
-import { RenderBox, PaintContext } from '../../framework/render-object';
+import { RenderBox } from '../../framework/render-object';
+import { PaintContext } from '../../scheduler/paint-context';
+import { ScreenBuffer } from '../../terminal/screen-buffer';
 
 // --- Test helpers ---
 
@@ -35,23 +36,17 @@ class FixedSizeBox extends RenderBox {
   paint(_context: PaintContext, _offset: Offset): void {}
 }
 
-/** Tracks all setChar calls for verifying paint output. */
-class MockPaintContext implements DecorationPaintContext {
-  calls: Array<{
-    col: number;
-    row: number;
-    char: string;
-    style?: unknown;
-  }> = [];
+/** Create a PaintContext backed by a real ScreenBuffer and return both. */
+function createTestContext(width: number, height: number) {
+  const screen = new ScreenBuffer(width, height);
+  const ctx = new PaintContext(screen);
+  return { screen, ctx };
+}
 
-  setChar(col: number, row: number, char: string, style?: unknown): void {
-    this.calls.push({ col, row, char, style });
-  }
-
-  getCharAt(col: number, row: number): string | undefined {
-    const call = this.calls.find((c) => c.col === col && c.row === row);
-    return call?.char;
-  }
+/** Read a character from the back buffer at (col, row). */
+function getCharAt(screen: ScreenBuffer, col: number, row: number): string {
+  const cell = screen.getBackBuffer().getCell(col, row);
+  return cell.char;
 }
 
 describe('BoxDecoration', () => {
@@ -211,26 +206,26 @@ describe('RenderDecoratedBox', () => {
       // Force a 6x4 size
       box.layout(BoxConstraints.tight(new Size(6, 4)));
 
-      const ctx = new MockPaintContext();
+      const { screen, ctx } = createTestContext(10, 8);
       box.paint(ctx, Offset.zero);
 
       // Corners
-      expect(ctx.getCharAt(0, 0)).toBe('\u256D'); // ╭ top-left
-      expect(ctx.getCharAt(5, 0)).toBe('\u256E'); // ╮ top-right
-      expect(ctx.getCharAt(0, 3)).toBe('\u2570'); // ╰ bottom-left
-      expect(ctx.getCharAt(5, 3)).toBe('\u256F'); // ╯ bottom-right
+      expect(getCharAt(screen, 0, 0)).toBe('\u256D'); // ╭ top-left
+      expect(getCharAt(screen, 5, 0)).toBe('\u256E'); // ╮ top-right
+      expect(getCharAt(screen, 0, 3)).toBe('\u2570'); // ╰ bottom-left
+      expect(getCharAt(screen, 5, 3)).toBe('\u256F'); // ╯ bottom-right
 
       // Horizontal edges (top)
-      expect(ctx.getCharAt(1, 0)).toBe('\u2500'); // ─
-      expect(ctx.getCharAt(4, 0)).toBe('\u2500'); // ─
+      expect(getCharAt(screen, 1, 0)).toBe('\u2500'); // ─
+      expect(getCharAt(screen, 4, 0)).toBe('\u2500'); // ─
 
       // Vertical edges (left)
-      expect(ctx.getCharAt(0, 1)).toBe('\u2502'); // │
-      expect(ctx.getCharAt(0, 2)).toBe('\u2502'); // │
+      expect(getCharAt(screen, 0, 1)).toBe('\u2502'); // │
+      expect(getCharAt(screen, 0, 2)).toBe('\u2502'); // │
 
       // Vertical edges (right)
-      expect(ctx.getCharAt(5, 1)).toBe('\u2502'); // │
-      expect(ctx.getCharAt(5, 2)).toBe('\u2502'); // │
+      expect(getCharAt(screen, 5, 1)).toBe('\u2502'); // │
+      expect(getCharAt(screen, 5, 2)).toBe('\u2502'); // │
     });
 
     test('solid border draws correct corners', () => {
@@ -242,13 +237,13 @@ describe('RenderDecoratedBox', () => {
 
       box.layout(BoxConstraints.tight(new Size(4, 3)));
 
-      const ctx = new MockPaintContext();
+      const { screen, ctx } = createTestContext(10, 8);
       box.paint(ctx, Offset.zero);
 
-      expect(ctx.getCharAt(0, 0)).toBe('\u250C'); // ┌ top-left
-      expect(ctx.getCharAt(3, 0)).toBe('\u2510'); // ┐ top-right
-      expect(ctx.getCharAt(0, 2)).toBe('\u2514'); // └ bottom-left
-      expect(ctx.getCharAt(3, 2)).toBe('\u2518'); // ┘ bottom-right
+      expect(getCharAt(screen, 0, 0)).toBe('\u250C'); // ┌ top-left
+      expect(getCharAt(screen, 3, 0)).toBe('\u2510'); // ┐ top-right
+      expect(getCharAt(screen, 0, 2)).toBe('\u2514'); // └ bottom-left
+      expect(getCharAt(screen, 3, 2)).toBe('\u2518'); // ┘ bottom-right
     });
 
     test('background color fills interior', () => {
@@ -262,19 +257,23 @@ describe('RenderDecoratedBox', () => {
 
       box.layout(BoxConstraints.tight(new Size(5, 4)));
 
-      const ctx = new MockPaintContext();
+      const { screen, ctx } = createTestContext(10, 8);
       box.paint(ctx, Offset.zero);
 
       // Interior cells (inside border) should have background color
-      const interiorCalls = ctx.calls.filter(
-        (c) => c.char === ' ' && c.col >= 1 && c.col < 4 && c.row >= 1 && c.row < 3,
-      );
+      const backBuf = screen.getBackBuffer();
+      let bgCount = 0;
+      for (let r = 1; r < 3; r++) {
+        for (let c = 1; c < 4; c++) {
+          const cell = backBuf.getCell(c, r);
+          expect(cell.char).toBe(' ');
+          expect(cell.style?.bg).toBe(bgColor);
+          bgCount++;
+        }
+      }
 
       // Interior is 3x2 = 6 cells
-      expect(interiorCalls.length).toBe(6);
-      for (const call of interiorCalls) {
-        expect((call.style as { bg: Color }).bg).toBe(bgColor);
-      }
+      expect(bgCount).toBe(6);
     });
 
     test('paint with offset shifts all coordinates', () => {
@@ -286,13 +285,13 @@ describe('RenderDecoratedBox', () => {
 
       box.layout(BoxConstraints.tight(new Size(4, 3)));
 
-      const ctx = new MockPaintContext();
+      const { screen, ctx } = createTestContext(20, 12);
       box.paint(ctx, new Offset(10, 5));
 
       // Top-left corner should be at (10, 5)
-      expect(ctx.getCharAt(10, 5)).toBe('\u256D'); // ╭
+      expect(getCharAt(screen, 10, 5)).toBe('\u256D'); // ╭
       // Bottom-right corner at (13, 7)
-      expect(ctx.getCharAt(13, 7)).toBe('\u256F'); // ╯
+      expect(getCharAt(screen, 13, 7)).toBe('\u256F'); // ╯
     });
   });
 

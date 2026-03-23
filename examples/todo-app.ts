@@ -15,8 +15,7 @@
 // - Enter (in input mode): Confirm new todo
 // - Escape: Cancel input mode
 //
-// Usage (conceptual — requires full binding to render):
-//   bun run examples/todo-app.ts
+// Run with: bun run examples/todo-app.ts
 
 import {
   StatefulWidget,
@@ -24,6 +23,7 @@ import {
   Widget,
   type BuildContext,
 } from '../src/framework/widget';
+import { runApp } from '../src/framework/binding';
 import { Text } from '../src/widgets/text';
 import { Column, Row } from '../src/widgets/flex';
 import { SizedBox } from '../src/widgets/sized-box';
@@ -352,3 +352,15 @@ export class TodoAppState extends State<TodoApp> {
 // ---------------------------------------------------------------------------
 
 export { txt };
+
+// Only run the app when executed directly
+if (import.meta.main) {
+  runApp(new TodoApp({
+    initialTodos: [
+      { id: 1, title: 'Build a TUI framework', completed: true },
+      { id: 2, title: 'Add border rendering', completed: true },
+      { id: 3, title: 'Write documentation', completed: false },
+      { id: 4, title: 'Ship v1.0', completed: false },
+    ],
+  }), { output: process.stdout });
+}

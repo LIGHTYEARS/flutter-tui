@@ -243,6 +243,6 @@ export const createSpinnerApp = (): SpinnerApp => new SpinnerApp();
 export { SPINNERS };
 
 // Only run the app when executed directly
-if (typeof process !== 'undefined' && !process.env.BUN_TEST) {
+if (import.meta.main) {
   runApp(new SpinnerApp(), { output: process.stdout });
 }

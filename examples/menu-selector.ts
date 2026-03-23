@@ -255,6 +255,6 @@ export const createMenuSelectorApp = (): MenuSelectorApp => new MenuSelectorApp(
 export { MENU_ITEMS };
 
 // Only run the app when executed directly
-if (typeof process !== 'undefined' && !process.env.BUN_TEST) {
+if (import.meta.main) {
   runApp(new MenuSelectorApp(), { output: process.stdout });
 }

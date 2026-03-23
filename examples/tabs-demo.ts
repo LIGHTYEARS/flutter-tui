@@ -293,6 +293,6 @@ export const createTabsDemoApp = (): TabsDemoApp => new TabsDemoApp();
 export { TABS };
 
 // Only run the app when executed directly
-if (typeof process !== 'undefined' && !process.env.BUN_TEST) {
+if (import.meta.main) {
   runApp(new TabsDemoApp(), { output: process.stdout });
 }

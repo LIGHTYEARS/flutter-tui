@@ -138,6 +138,6 @@ class CounterState extends State<CounterApp> {
 export const createCounterApp = (): CounterApp => new CounterApp();
 
 // Only run the app when executed directly
-if (typeof process !== 'undefined' && !process.env.BUN_TEST) {
+if (import.meta.main) {
   runApp(new CounterApp(), { output: process.stdout });
 }

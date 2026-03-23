@@ -35,6 +35,6 @@ const app = new Center({
 export { app };
 
 // Only run the app when executed directly (not when imported for tests)
-if (typeof process !== 'undefined' && !process.env.BUN_TEST) {
+if (import.meta.main) {
   runApp(app, { output: process.stdout });
 }

@@ -260,6 +260,6 @@ export function buildNestedLayout() {
 export const app = buildNestedLayout();
 
 // Only run the app when executed directly
-if (typeof process !== 'undefined' && !process.env.BUN_TEST) {
+if (import.meta.main) {
   runApp(app, { output: process.stdout });
 }

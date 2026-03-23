@@ -290,6 +290,6 @@ export class CalculatorState extends State<CalculatorApp> {
 export const createCalculatorApp = (): CalculatorApp => new CalculatorApp();
 
 // Only run the app when executed directly
-if (typeof process !== 'undefined' && !process.env.BUN_TEST) {
+if (import.meta.main) {
   runApp(new CalculatorApp(), { output: process.stdout });
 }

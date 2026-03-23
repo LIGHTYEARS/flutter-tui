@@ -313,6 +313,6 @@ export class LoginFormState extends State<LoginFormApp> {
 export const createLoginFormApp = (): LoginFormApp => new LoginFormApp();
 
 // Only run the app when executed directly
-if (typeof process !== 'undefined' && !process.env.BUN_TEST) {
+if (import.meta.main) {
   runApp(new LoginFormApp(), { output: process.stdout });
 }

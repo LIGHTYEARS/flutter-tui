@@ -9,8 +9,7 @@
 // Each cell is a Container with width=1, height=1, and a colored background.
 // Colors cycle through a palette to create a visual pattern.
 //
-// Usage (conceptual — requires full binding to render):
-//   bun run examples/perf-stress.ts
+// Run with: bun run examples/perf-stress.ts
 
 import {
   StatefulWidget,
@@ -19,6 +18,7 @@ import {
   Widget,
   type BuildContext,
 } from '../src/framework/widget';
+import { runApp } from '../src/framework/binding';
 import { Text } from '../src/widgets/text';
 import { Column, Row } from '../src/widgets/flex';
 import { Container } from '../src/widgets/container';
@@ -241,3 +241,8 @@ export class PerfStressTestState extends State<PerfStressTest> {
 // ---------------------------------------------------------------------------
 
 export { txt as perfTxt };
+
+// Only run the app when executed directly
+if (import.meta.main) {
+  runApp(new PerfStressTest(), { output: process.stdout });
+}
