@@ -217,8 +217,12 @@ export class WidgetsBinding {
     // Wire up global schedulers (Amp ref: VG8 call in J3 constructor)
     initSchedulers(
       {
-        scheduleBuildFor: (element: Element) =>
-          this.buildOwner.scheduleBuildFor(element),
+        scheduleBuildFor: (element: Element) => {
+          this.buildOwner.scheduleBuildFor(element);
+          // Also schedule a frame so the dirty element gets rebuilt + repainted.
+          // Amp ref: XG8().scheduleBuildFor calls c9.instance.requestFrame()
+          this.scheduleFrame();
+        },
       },
       {
         requestLayout: () => this.pipelineOwner.requestLayout(),

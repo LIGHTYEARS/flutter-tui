@@ -93,8 +93,6 @@ export class BuildOwner {
   scheduleBuildFor(element: Element): void {
     if (this._dirtyElements.has(element)) return;
     this._dirtyElements.add(element);
-    // In the full implementation, this also calls c9.instance.requestFrame()
-    // That wiring happens in WidgetsBinding (Plan 03-03)
   }
 
   /**

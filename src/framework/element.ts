@@ -142,11 +142,17 @@ export class Element {
   // Amp ref: T$.markNeedsRebuild() — sets _dirty, calls XG8().scheduleBuildFor
   markNeedsRebuild(): void {
     if (!this._mounted) return;
+    if (this._dirty) return; // already scheduled
     this._dirty = true;
-    // BuildOwner scheduling is handled by whoever sets up the owner.
-    // In the actual Amp code this calls XG8().scheduleBuildFor(this),
-    // which is the global build scheduler. For testability, we skip
-    // the global reference here — the full BuildOwner (Plan 03-03) wires this.
+    // Notify the global build scheduler so BuildOwner picks up this element
+    // and a new frame is scheduled.
+    // Amp ref: XG8().scheduleBuildFor(this)
+    try {
+      const { getBuildScheduler } = require('./binding');
+      getBuildScheduler().scheduleBuildFor(this);
+    } catch (_e) {
+      // Build scheduler not available (e.g. tests without binding)
+    }
   }
 
   // Alias used by StatefulElement
