@@ -149,6 +149,7 @@ export class PaintContext {
   /**
    * Draw a text string starting at (x, y) with optional style.
    * Handles CJK wide characters (width 2). Characters outside clip are skipped.
+   * Preserves existing cell background color when the new style has no bg.
    */
   drawText(x: number, y: number, text: string, style?: CellStyle): void {
     let curX = x;
@@ -158,7 +159,8 @@ export class PaintContext {
       if (w === 0) continue; // Skip zero-width characters
 
       if (this.isInClip(curX, y, w)) {
-        this.screen.setChar(curX, y, char, style, w);
+        const merged = this._mergeWithExistingBg(curX, y, style);
+        this.screen.setChar(curX, y, char, merged, w);
       }
       curX += w;
     }
@@ -167,6 +169,7 @@ export class PaintContext {
   /**
    * Draw a TextSpan tree starting at (x, y).
    * Walks the span tree, extracts text + style, draws each character with the span's merged style.
+   * Preserves existing cell background color when the span style has no bg.
    * Returns the total number of characters drawn (by column width, not grapheme count).
    */
   drawTextSpan(x: number, y: number, span: TextSpan, maxWidth?: number): number {
@@ -184,13 +187,25 @@ export class PaintContext {
         if (curX + w > limit) return;
 
         if (this.isInClip(curX, y, w)) {
-          this.screen.setChar(curX, y, char, cellStyle, w);
+          const merged = this._mergeWithExistingBg(curX, y, cellStyle);
+          this.screen.setChar(curX, y, char, merged, w);
         }
         curX += w;
       }
     });
 
     return curX - x;
+  }
+
+  /**
+   * Merge a new style with the existing cell's background color.
+   * If the new style has no bg, inherit the existing cell's bg.
+   */
+  private _mergeWithExistingBg(x: number, y: number, style?: CellStyle): CellStyle | undefined {
+    if (style?.bg) return style; // new style has explicit bg, use it
+    const existing = this.screen.getCell(x, y);
+    if (!existing.style?.bg) return style; // no existing bg to inherit
+    return { ...style, bg: existing.style.bg };
   }
 
   /**

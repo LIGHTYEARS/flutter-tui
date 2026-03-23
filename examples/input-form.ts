@@ -32,6 +32,8 @@ import { TextStyle } from '../src/core/text-style';
 import { Color } from '../src/core/color';
 import { Expanded } from '../src/widgets/flexible';
 import { BoxDecoration, Border, BorderSide } from '../src/layout/render-decorated';
+import { FocusNode, FocusManager } from '../src/input/focus';
+import type { KeyEvent, KeyEventResult } from '../src/input/events';
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -86,15 +88,43 @@ class InputFormState extends State<InputForm> {
   private _statusMessage: string = '';
   private _statusStyle: TextStyle = dimStyle;
   private _focusIndex: number = 0;
+  private _focusNode: FocusNode | null = null;
 
   initState(): void {
     super.initState();
     this._nameCtrl = new TextEditingController();
     this._emailCtrl = new TextEditingController();
     this._msgCtrl = new TextEditingController();
+    // Wire keyboard input via FocusNode
+    this._focusNode = new FocusNode({
+      debugLabel: 'InputFormFocus',
+      onKey: (event: KeyEvent): KeyEventResult => {
+        // Handle quit
+        if (event.key === 'q' && event.ctrlKey) {
+          process.exit(0);
+        }
+        const result = this.handleKeyEvent(event.key);
+        if (result === 'handled') {
+          this.setState(() => {});
+        }
+        // For printable characters, also type into the current field
+        if (result === 'ignored' && event.key.length === 1) {
+          this.currentController.insertText(event.key);
+          this.setState(() => {});
+          return 'handled';
+        }
+        return result;
+      },
+    });
+    FocusManager.instance.registerNode(this._focusNode, null);
+    this._focusNode.requestFocus();
   }
 
   dispose(): void {
+    if (this._focusNode) {
+      this._focusNode.dispose();
+      this._focusNode = null;
+    }
     this._nameCtrl.dispose();
     this._emailCtrl.dispose();
     this._msgCtrl.dispose();

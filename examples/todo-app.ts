@@ -40,6 +40,8 @@ import {
   Border,
   BorderSide,
 } from '../src/layout/render-decorated';
+import { FocusNode, FocusManager } from '../src/input/focus';
+import type { KeyEvent, KeyEventResult } from '../src/input/events';
 
 // ---------------------------------------------------------------------------
 // Data model
@@ -110,6 +112,7 @@ export class TodoAppState extends State<TodoApp> {
   private _inputMode: boolean = false;
   private _inputController!: TextEditingController;
   private _nextId: number = 1;
+  private _focusNode: FocusNode | null = null;
 
   initState(): void {
     super.initState();
@@ -121,9 +124,26 @@ export class TodoAppState extends State<TodoApp> {
         this._nextId = todo.id + 1;
       }
     }
+    // Wire keyboard input via FocusNode
+    this._focusNode = new FocusNode({
+      debugLabel: 'TodoAppFocus',
+      onKey: (event: KeyEvent): KeyEventResult => {
+        const result = this.handleKeyEvent(event.key);
+        if (result === 'handled') {
+          this.setState(() => {});
+        }
+        return result;
+      },
+    });
+    FocusManager.instance.registerNode(this._focusNode, null);
+    this._focusNode.requestFocus();
   }
 
   dispose(): void {
+    if (this._focusNode) {
+      this._focusNode.dispose();
+      this._focusNode = null;
+    }
     this._inputController.dispose();
     super.dispose();
   }
@@ -270,7 +290,11 @@ export class TodoAppState extends State<TodoApp> {
         this.moveUp();
         return 'handled';
       case 'q':
-        this.widget.onQuit?.();
+        if (this.widget.onQuit) {
+          this.widget.onQuit();
+        } else {
+          process.exit(0);
+        }
         return 'handled';
       default:
         return 'ignored';
