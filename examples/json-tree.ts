@@ -238,7 +238,7 @@ export class JsonTreeState extends State<JsonTree> {
       children.push(new TextSpan({ text: val, style: vSty }));
     }
 
-    const dec = isSel ? new BoxDecoration({ color: Color.blue }) : new BoxDecoration();
+    const dec = isSel ? new BoxDecoration({ color: Color.brightBlack }) : new BoxDecoration();
     return new Container({
       decoration: dec,
       child: new Text({ text: new TextSpan({ children }) }),
@@ -265,8 +265,7 @@ export class JsonTreeState extends State<JsonTree> {
         // Header
         new Container({
           decoration: new BoxDecoration({
-            color: Color.blue,
-            border: Border.all(new BorderSide({ color: Color.brightBlue, style: 'solid' })),
+            border: new Border({ bottom: new BorderSide({ color: Color.brightBlack, style: 'solid' }) }),
           }),
           padding: EdgeInsets.symmetric({ horizontal: 1 }),
           child: new Row({
@@ -302,11 +301,13 @@ export class JsonTreeState extends State<JsonTree> {
         }),
         // Help bar
         new Container({
-          decoration: new BoxDecoration({ color: Color.blue }),
+          decoration: new BoxDecoration({
+            border: new Border({ top: new BorderSide({ color: Color.brightBlack, style: 'solid' }) }),
+          }),
           padding: EdgeInsets.symmetric({ horizontal: 1 }),
           child: txt(
             ' j/k:\u2191\u2193  Enter/Space:expand/collapse  q:quit ',
-            new TextStyle({ foreground: Color.defaultColor }),
+            new TextStyle({ dim: true }),
           ),
         }),
       ],

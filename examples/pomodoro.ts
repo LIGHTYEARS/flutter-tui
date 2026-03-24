@@ -317,11 +317,10 @@ export class PomodoroTimerState extends State<PomodoroTimer> {
         // Title bar
         new Container({
           decoration: new BoxDecoration({
-            color: color,
-            border: Border.all(new BorderSide({ color, style: 'solid' })),
+            border: new Border({ bottom: new BorderSide({ color: Color.brightBlack, style: 'solid' }) }),
           }),
           child: new Center({
-            child: txt(' Pomodoro Timer ', new TextStyle({ bold: true })),
+            child: txt(' Pomodoro Timer ', new TextStyle({ bold: true, foreground: color })),
           }),
         }),
 
@@ -382,11 +381,13 @@ export class PomodoroTimerState extends State<PomodoroTimer> {
 
         // Controls help bar
         new Container({
-          decoration: new BoxDecoration({ color: Color.brightBlack }),
+          decoration: new BoxDecoration({
+            border: new Border({ top: new BorderSide({ color: Color.brightBlack, style: 'solid' }) }),
+          }),
           child: new Center({
             child: txt(
               ' Space: Start/Pause | r: Reset | n: Next Session | q: Quit ',
-              new TextStyle({ foreground: Color.defaultColor }),
+              new TextStyle({ dim: true }),
             ),
           }),
         }),

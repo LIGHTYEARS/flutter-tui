@@ -502,7 +502,9 @@ export class TextEditorState extends State<TextEditor> {
 
     // Title bar
     const titleBar = new Container({
-      decoration: new BoxDecoration({ color: Color.blue }),
+      decoration: new BoxDecoration({
+        border: new Border({ bottom: new BorderSide({ color: Color.brightBlack, style: 'solid' }) }),
+      }),
       child: new Padding({
         padding: EdgeInsets.symmetric({ horizontal: 1 }),
         child: richText([
@@ -525,7 +527,9 @@ export class TextEditorState extends State<TextEditor> {
       : 100;
 
     const statusBar = new Container({
-      decoration: new BoxDecoration({ color: Color.brightBlack }),
+      decoration: new BoxDecoration({
+        border: new Border({ top: new BorderSide({ color: Color.brightBlack, style: 'solid' }) }),
+      }),
       child: new Padding({
         padding: EdgeInsets.symmetric({ horizontal: 1 }),
         child: new Row({

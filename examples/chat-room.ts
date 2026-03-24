@@ -259,10 +259,7 @@ export class ChatRoomState extends State<ChatRoom> {
       child: new Column({
         mainAxisSize: 'min', crossAxisAlignment: 'stretch',
         children: [
-          new Container({
-            decoration: new BoxDecoration({ color: Color.green }),
-            child: txt(' Online ', new TextStyle({ bold: true })),
-          }),
+          txt(' Online ', new TextStyle({ bold: true, foreground: Color.green })),
           new SizedBox({ height: 1 }),
           ...userWidgets,
           new SizedBox({ height: 1 }),
@@ -275,7 +272,7 @@ export class ChatRoomState extends State<ChatRoom> {
   private _buildInputArea(): Widget {
     return new Container({
       decoration: new BoxDecoration({
-        border: Border.all(new BorderSide({ color: Color.cyan, style: 'rounded' })),
+        border: Border.all(new BorderSide({ color: Color.brightBlack, style: 'rounded' })),
       }),
       child: new Row({ children: [
         txt(' > ', inputLabelStyle),
@@ -291,11 +288,10 @@ export class ChatRoomState extends State<ChatRoom> {
         // Header
         new Container({
           decoration: new BoxDecoration({
-            color: Color.blue,
-            border: Border.all(new BorderSide({ color: Color.blue, style: 'solid' })),
+            border: new Border({ bottom: new BorderSide({ color: Color.brightBlack, style: 'solid' }) }),
           }),
           child: Row.spaceBetween([
-            txt(' #general ', headerStyle),
+            txt(' #general ', new TextStyle({ bold: true, foreground: Color.cyan })),
             txt(`${this._messages.length} messages `, dimStyle),
           ]),
         }),

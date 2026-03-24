@@ -50,7 +50,7 @@ const greenStyle    = new TextStyle({ foreground: Color.green });
 const yellowStyle   = new TextStyle({ foreground: Color.yellow });
 const selectedStyle = new TextStyle({ bold: true, foreground: Color.defaultColor });
 const playingStyle  = new TextStyle({ bold: true, foreground: Color.green });
-const selectedBg    = Color.blue;
+const selectedBg    = Color.brightBlack;
 
 // --- Helpers ---
 
@@ -203,10 +203,9 @@ export class MusicPlayerState extends State<MusicPlayer> {
         // Title bar
         new Container({
           decoration: new BoxDecoration({
-            color: Color.magenta,
-            border: Border.all(new BorderSide({ color: Color.brightMagenta, style: 'solid' })),
+            border: new Border({ bottom: new BorderSide({ color: Color.brightBlack, style: 'solid' }) }),
           }),
-          child: txt('  Music Player  ', headerStyle),
+          child: txt('  Music Player  ', new TextStyle({ bold: true, foreground: Color.magenta })),
         }),
         // Playlist panel
         new Expanded({
@@ -246,7 +245,9 @@ export class MusicPlayerState extends State<MusicPlayer> {
         }),
         // Status bar with keybindings help
         new Container({
-          decoration: new BoxDecoration({ color: Color.brightBlack }),
+          decoration: new BoxDecoration({
+            border: new Border({ top: new BorderSide({ color: Color.brightBlack, style: 'solid' }) }),
+          }),
           child: txt(
             ' space:play/pause  n:next  p:prev  s:shuffle  r:repeat  +/-:vol  j/k:browse  enter:select  q:quit ',
             dimStyle,

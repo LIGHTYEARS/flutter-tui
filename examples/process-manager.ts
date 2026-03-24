@@ -427,12 +427,11 @@ export class ProcessManagerState extends State<ProcessManager> {
   private _buildTitleBar(): Widget {
     return new Container({
       decoration: new BoxDecoration({
-        color: Color.blue,
-        border: Border.all(new BorderSide({ color: Color.brightBlue, style: 'solid' })),
+        border: new Border({ bottom: new BorderSide({ color: Color.brightBlack, style: 'solid' }) }),
       }),
       child: new Row({
         children: [
-          txt(' Process Manager ', new TextStyle({ bold: true, foreground: Color.defaultColor })),
+          txt(' Process Manager ', new TextStyle({ bold: true, foreground: Color.cyan })),
           new Expanded({
             child: txt('', new TextStyle()),
           }),
@@ -459,7 +458,6 @@ export class ProcessManagerState extends State<ProcessManager> {
     });
 
     return new Container({
-      decoration: new BoxDecoration({ color: Color.brightBlack }),
       child: new Row({ children: headerWidgets }),
     });
   }
@@ -467,7 +465,7 @@ export class ProcessManagerState extends State<ProcessManager> {
   private _buildProcessRow(proc: ProcessInfo, index: number): Widget {
     const isSelected = index === this._selectedIndex;
     const decoration = isSelected
-      ? new BoxDecoration({ color: Color.blue })
+      ? new BoxDecoration({ color: Color.brightBlack })
       : new BoxDecoration();
 
     const baseStyle = isSelected
@@ -525,7 +523,7 @@ export class ProcessManagerState extends State<ProcessManager> {
 
     return new Container({
       decoration: new BoxDecoration({
-        color: Color.brightBlack,
+        border: new Border({ top: new BorderSide({ color: Color.brightBlack, style: 'solid' }) }),
       }),
       child: new Row({
         children: [
@@ -554,10 +552,12 @@ export class ProcessManagerState extends State<ProcessManager> {
       const name = target ? target.name : '???';
       const pid = target ? target.pid : 0;
       return new Container({
-        decoration: new BoxDecoration({ color: Color.red }),
+        decoration: new BoxDecoration({
+          border: new Border({ top: new BorderSide({ color: Color.red, style: 'solid' }) }),
+        }),
         child: txt(
           ` Kill process ${pid} (${name})? [Y]es / [N]o `,
-          new TextStyle({ bold: true, foreground: Color.defaultColor }),
+          new TextStyle({ bold: true, foreground: Color.red }),
         ),
       });
     }
