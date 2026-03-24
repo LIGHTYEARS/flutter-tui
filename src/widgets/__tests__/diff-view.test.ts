@@ -279,3 +279,362 @@ describe('DiffView edge cases', () => {
     expect(hunks[0]!.header).toContain('function foo()');
   });
 });
+
+// ---------------------------------------------------------------------------
+// computeDiff tests (Myers diff algorithm)
+// ---------------------------------------------------------------------------
+
+describe('DiffView.computeDiff', () => {
+  test('computes diff for a single line change', () => {
+    const result = DiffView.computeDiff('a\nb\nc', 'a\nB\nc');
+    expect(result).toContain('-b');
+    expect(result).toContain('+B');
+    expect(result).toContain(' a');
+    expect(result).toContain(' c');
+  });
+
+  test('returns empty string for identical inputs', () => {
+    const result = DiffView.computeDiff('hello\nworld', 'hello\nworld');
+    expect(result).toBe('');
+  });
+
+  test('returns empty string when both inputs are empty', () => {
+    const result = DiffView.computeDiff('', '');
+    expect(result).toBe('');
+  });
+
+  test('computes diff when old text is empty (all additions)', () => {
+    const result = DiffView.computeDiff('', 'a\nb');
+    expect(result).toContain('+a');
+    expect(result).toContain('+b');
+    // No deletion lines should be present (only --- header line contains -)
+    const lines = result.split('\n');
+    const deletionLines = lines.filter((l) => l.startsWith('-') && !l.startsWith('---'));
+    expect(deletionLines.length).toBe(0);
+  });
+
+  test('computes diff when new text is empty (all deletions)', () => {
+    const result = DiffView.computeDiff('a\nb', '');
+    expect(result).toContain('-a');
+    expect(result).toContain('-b');
+    // The + should not appear in the diff lines (only in +++ header)
+    const lines = result.split('\n');
+    const additionLines = lines.filter((l) => l.startsWith('+') && !l.startsWith('+++'));
+    expect(additionLines.length).toBe(0);
+  });
+
+  test('computes diff for completely different content', () => {
+    const result = DiffView.computeDiff('a\nb', 'x\ny');
+    expect(result).toContain('-a');
+    expect(result).toContain('-b');
+    expect(result).toContain('+x');
+    expect(result).toContain('+y');
+  });
+
+  test('deletions appear before additions in unified format', () => {
+    const result = DiffView.computeDiff('hello', 'world');
+    const lines = result.split('\n');
+    const deletionIdx = lines.findIndex((l) => l === '-hello');
+    const additionIdx = lines.findIndex((l) => l === '+world');
+    expect(deletionIdx).toBeGreaterThan(-1);
+    expect(additionIdx).toBeGreaterThan(-1);
+    expect(deletionIdx).toBeLessThan(additionIdx);
+  });
+
+  test('equal lines are preserved as context with leading space', () => {
+    const result = DiffView.computeDiff('a\nb\nc', 'a\nB\nc');
+    const lines = result.split('\n');
+    const contextLines = lines.filter((l) => l.startsWith(' '));
+    expect(contextLines).toContain(' a');
+    expect(contextLines).toContain(' c');
+  });
+
+  test('produces valid unified diff header', () => {
+    const result = DiffView.computeDiff('a', 'b');
+    expect(result).toContain('--- a/file');
+    expect(result).toContain('+++ b/file');
+    expect(result).toMatch(/@@ -\d+,\d+ \+\d+,\d+ @@/);
+  });
+
+  test('uses custom fileName in header', () => {
+    const result = DiffView.computeDiff('a', 'b', { fileName: 'test.ts' });
+    expect(result).toContain('--- a/test.ts');
+    expect(result).toContain('+++ b/test.ts');
+  });
+
+  test('respects contextLines option', () => {
+    const oldText = 'line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10';
+    const newText = 'line1\nline2\nline3\nLINE4\nline5\nline6\nline7\nline8\nline9\nline10';
+    const result = DiffView.computeDiff(oldText, newText, { contextLines: 1 });
+    const lines = result.split('\n');
+    const contentLines = lines.filter((l) => !l.startsWith('---') && !l.startsWith('+++') && !l.startsWith('@@'));
+    // Should have: 1 context before + 1 deletion + 1 addition + 1 context after = 4
+    expect(contentLines.length).toBe(4);
+    expect(contentLines).toContain(' line3');
+    expect(contentLines).toContain('-line4');
+    expect(contentLines).toContain('+LINE4');
+    expect(contentLines).toContain(' line5');
+  });
+
+  test('ignoreWhitespace ignores trailing whitespace differences', () => {
+    const result = DiffView.computeDiff('a  \nb\nc  ', 'a\nb\nc', {
+      ignoreWhitespace: true,
+    });
+    expect(result).toBe('');
+  });
+
+  test('ignoreWhitespace still detects non-whitespace changes', () => {
+    const result = DiffView.computeDiff('a  \nb\nc  ', 'a\nB\nc', {
+      ignoreWhitespace: true,
+    });
+    expect(result).toContain('-b');
+    expect(result).toContain('+B');
+  });
+
+  test('roundtrip: computeDiff output can be parsed by parseDiff', () => {
+    const diff = DiffView.computeDiff('a\nb\nc', 'a\nB\nc');
+    const hunks = DiffView.parseDiff(diff);
+    const realHunks = hunks.filter((h) => h.header !== '__meta__');
+    expect(realHunks.length).toBe(1);
+    const hunk = realHunks[0]!;
+    expect(hunk.lines.some((l) => l.type === 'deletion' && l.content === '-b')).toBe(true);
+    expect(hunk.lines.some((l) => l.type === 'addition' && l.content === '+B')).toBe(true);
+    expect(hunk.lines.some((l) => l.type === 'context' && l.content === ' a')).toBe(true);
+  });
+
+  test('handles multi-line additions in the middle', () => {
+    const result = DiffView.computeDiff('a\nc', 'a\nb\nc');
+    expect(result).toContain('+b');
+    expect(result).toContain(' a');
+    expect(result).toContain(' c');
+  });
+
+  test('handles multi-line deletions in the middle', () => {
+    const result = DiffView.computeDiff('a\nb\nc', 'a\nc');
+    expect(result).toContain('-b');
+    expect(result).toContain(' a');
+    expect(result).toContain(' c');
+  });
+
+  test('handles single line change', () => {
+    const result = DiffView.computeDiff('hello', 'world');
+    expect(result).toContain('-hello');
+    expect(result).toContain('+world');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeWordDiff tests
+// ---------------------------------------------------------------------------
+
+describe('DiffView.computeWordDiff', () => {
+  test('detects changed word in the middle', () => {
+    const result = DiffView.computeWordDiff('hello world foo', 'hello planet foo');
+    // Should have: same "hello", same " ", removed "world", added "planet", same " ", same "foo"
+    const sameWords = result.filter((w) => w.type === 'same');
+    const removedWords = result.filter((w) => w.type === 'removed');
+    const addedWords = result.filter((w) => w.type === 'added');
+    expect(sameWords.map((w) => w.text)).toContain('hello');
+    expect(sameWords.map((w) => w.text)).toContain('foo');
+    expect(removedWords.length).toBe(1);
+    expect(removedWords[0]!.text).toBe('world');
+    expect(addedWords.length).toBe(1);
+    expect(addedWords[0]!.text).toBe('planet');
+  });
+
+  test('returns all same for identical lines', () => {
+    const result = DiffView.computeWordDiff('hello world', 'hello world');
+    expect(result.every((w) => w.type === 'same')).toBe(true);
+    expect(result.map((w) => w.text).join('')).toBe('hello world');
+  });
+
+  test('returns empty array for two empty strings', () => {
+    const result = DiffView.computeWordDiff('', '');
+    expect(result.length).toBe(0);
+  });
+
+  test('returns all added when old is empty', () => {
+    const result = DiffView.computeWordDiff('', 'hello world');
+    expect(result.every((w) => w.type === 'added')).toBe(true);
+    expect(result.map((w) => w.text).join('')).toBe('hello world');
+  });
+
+  test('returns all removed when new is empty', () => {
+    const result = DiffView.computeWordDiff('hello world', '');
+    expect(result.every((w) => w.type === 'removed')).toBe(true);
+    expect(result.map((w) => w.text).join('')).toBe('hello world');
+  });
+
+  test('handles completely different lines', () => {
+    const result = DiffView.computeWordDiff('aaa bbb', 'xxx yyy');
+    const removed = result.filter((w) => w.type === 'removed');
+    const added = result.filter((w) => w.type === 'added');
+    expect(removed.map((w) => w.text)).toContain('aaa');
+    expect(removed.map((w) => w.text)).toContain('bbb');
+    expect(added.map((w) => w.text)).toContain('xxx');
+    expect(added.map((w) => w.text)).toContain('yyy');
+  });
+
+  test('preserves whitespace as separate tokens', () => {
+    const result = DiffView.computeWordDiff('a  b', 'a  b');
+    // "a", "  ", "b" should all be same
+    expect(result.length).toBe(3);
+    expect(result[0]!.text).toBe('a');
+    expect(result[1]!.text).toBe('  ');
+    expect(result[2]!.text).toBe('b');
+  });
+
+  test('detects whitespace changes', () => {
+    const result = DiffView.computeWordDiff('a b', 'a  b');
+    // "a" same, " " removed, "  " added, "b" same
+    const removed = result.filter((w) => w.type === 'removed');
+    const added = result.filter((w) => w.type === 'added');
+    expect(removed.length).toBeGreaterThanOrEqual(1);
+    expect(added.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('handles single word lines', () => {
+    const result = DiffView.computeWordDiff('hello', 'world');
+    expect(result.length).toBe(2);
+    expect(result.find((w) => w.type === 'removed')!.text).toBe('hello');
+    expect(result.find((w) => w.type === 'added')!.text).toBe('world');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// New constructor options tests
+// ---------------------------------------------------------------------------
+
+describe('DiffView new constructor options', () => {
+  test('ignoreWhitespace defaults to false', () => {
+    const view = new DiffView({ diff: '' });
+    expect(view.ignoreWhitespace).toBe(false);
+  });
+
+  test('wordLevelDiff defaults to true', () => {
+    const view = new DiffView({ diff: '' });
+    expect(view.wordLevelDiff).toBe(true);
+  });
+
+  test('ignoreWhitespace can be set to true', () => {
+    const view = new DiffView({ diff: '', ignoreWhitespace: true });
+    expect(view.ignoreWhitespace).toBe(true);
+  });
+
+  test('wordLevelDiff can be set to false', () => {
+    const view = new DiffView({ diff: '', wordLevelDiff: false });
+    expect(view.wordLevelDiff).toBe(false);
+  });
+
+  test('all original options still work', () => {
+    const view = new DiffView({
+      diff: SIMPLE_DIFF,
+      showLineNumbers: false,
+      context: 5,
+      filePath: 'test.ts',
+      ignoreWhitespace: true,
+      wordLevelDiff: false,
+    });
+    expect(view.diff).toBe(SIMPLE_DIFF);
+    expect(view.showLineNumbers).toBe(false);
+    expect(view.context).toBe(5);
+    expect(view.filePath).toBe('test.ts');
+    expect(view.ignoreWhitespace).toBe(true);
+    expect(view.wordLevelDiff).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Word-level diff rendering tests (build behavior via parseDiff + computeWordDiff)
+// ---------------------------------------------------------------------------
+
+describe('DiffView word-level diff rendering logic', () => {
+  test('adjacent deletion+addition pair is detected for word-level diff', () => {
+    // Simulate the build() detection logic:
+    // when a deletion line is immediately followed by an addition line,
+    // word-level diff should be computed
+    const diff = `@@ -1,3 +1,3 @@
+ context
+-old line here
++new line here
+ more context`;
+    const hunks = DiffView.parseDiff(diff);
+    const lines = hunks[0]!.lines;
+
+    // Find the deletion+addition pair
+    let foundPair = false;
+    for (let i = 0; i < lines.length - 1; i++) {
+      if (lines[i]!.type === 'deletion' && lines[i + 1]!.type === 'addition') {
+        foundPair = true;
+        const oldContent = lines[i]!.content.slice(1); // strip '-'
+        const newContent = lines[i + 1]!.content.slice(1); // strip '+'
+        const wordDiffs = DiffView.computeWordDiff(oldContent, newContent);
+
+        // "old line here" vs "new line here"
+        // "old" -> removed, "new" -> added, " line here" -> same
+        const removed = wordDiffs.filter((w) => w.type === 'removed');
+        const added = wordDiffs.filter((w) => w.type === 'added');
+        expect(removed.length).toBe(1);
+        expect(removed[0]!.text).toBe('old');
+        expect(added.length).toBe(1);
+        expect(added[0]!.text).toBe('new');
+        break;
+      }
+    }
+    expect(foundPair).toBe(true);
+  });
+
+  test('non-adjacent deletion and addition are not paired', () => {
+    // Deletion followed by context then addition should not be paired
+    const diff = `@@ -1,4 +1,4 @@
+-deleted line
+ context line
++added line
+ more context`;
+    const hunks = DiffView.parseDiff(diff);
+    const lines = hunks[0]!.lines;
+
+    // Check that deletion is NOT immediately followed by addition
+    for (let i = 0; i < lines.length - 1; i++) {
+      if (lines[i]!.type === 'deletion') {
+        expect(lines[i + 1]!.type).not.toBe('addition');
+      }
+    }
+  });
+
+  test('multiple consecutive deletion+addition pairs each get word diff', () => {
+    const diff = `@@ -1,4 +1,4 @@
+-old line one
++new line one
+-old line two
++new line two`;
+    const hunks = DiffView.parseDiff(diff);
+    const lines = hunks[0]!.lines;
+
+    let pairCount = 0;
+    for (let i = 0; i < lines.length - 1; i++) {
+      if (lines[i]!.type === 'deletion' && lines[i + 1]!.type === 'addition') {
+        pairCount++;
+        i++; // skip the addition
+      }
+    }
+    expect(pairCount).toBe(2);
+  });
+
+  test('word diff correctly reconstructs text from same + highlighted segments', () => {
+    const wordDiffs = DiffView.computeWordDiff('const x = 1;', 'const y = 2;');
+    // On deletion line, show 'same' and 'removed' segments
+    const deletionText = wordDiffs
+      .filter((w) => w.type === 'same' || w.type === 'removed')
+      .map((w) => w.text)
+      .join('');
+    expect(deletionText).toBe('const x = 1;');
+
+    // On addition line, show 'same' and 'added' segments
+    const additionText = wordDiffs
+      .filter((w) => w.type === 'same' || w.type === 'added')
+      .map((w) => w.text)
+      .join('');
+    expect(additionText).toBe('const y = 2;');
+  });
+});

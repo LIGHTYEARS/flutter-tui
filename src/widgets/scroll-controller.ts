@@ -42,6 +42,18 @@ export class ScrollController {
     return this._animationTimer !== null;
   }
 
+  private _viewportSize: number = 0;
+
+  /** The viewport size (height for vertical, width for horizontal scroll). */
+  get viewportSize(): number {
+    return this._viewportSize;
+  }
+
+  /** Update the viewport size. Called by RenderScrollViewport during layout. */
+  updateViewportSize(size: number): void {
+    this._viewportSize = size;
+  }
+
   /**
    * Smoothly animate from current offset to targetOffset using linear interpolation.
    * Cancels any existing animation. Clamps target to [0, maxScrollExtent].

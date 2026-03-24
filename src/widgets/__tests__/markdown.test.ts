@@ -1,7 +1,7 @@
 // Tests for Markdown widget
 // Verifies markdown parsing, inline formatting, block types, and widget construction
 
-import { describe, test, expect } from 'bun:test';
+import { describe, test, expect, beforeEach } from 'bun:test';
 import { Markdown } from '../markdown';
 
 // ---------------------------------------------------------------------------
@@ -9,6 +9,10 @@ import { Markdown } from '../markdown';
 // ---------------------------------------------------------------------------
 
 describe('Markdown.parseMarkdown', () => {
+  beforeEach(() => {
+    Markdown.clearCache();
+  });
+
   test('parses heading level 1', () => {
     const blocks = Markdown.parseMarkdown('# Hello World');
     expect(blocks.length).toBe(1);
@@ -306,5 +310,383 @@ describe('Markdown edge cases', () => {
     expect(segments.length).toBe(1);
     expect(segments[0]!.linkUrl).toBe('https://example.com/path?q=1&r=2#anchor');
     expect(segments[0]!.linkText).toBe('docs');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// New block type tests: heading4, numbered-list, blockquote, horizontal-rule, table
+// ---------------------------------------------------------------------------
+
+describe('Markdown new block types', () => {
+  beforeEach(() => {
+    Markdown.clearCache();
+  });
+
+  // Heading 4
+  test('parses heading level 4', () => {
+    const blocks = Markdown.parseMarkdown('#### Sub-section');
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('heading4');
+    expect(blocks[0]!.content).toBe('Sub-section');
+  });
+
+  test('heading 4 without space after #### is paragraph', () => {
+    const blocks = Markdown.parseMarkdown('####NoSpace');
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('paragraph');
+  });
+
+  test('all four heading levels parse correctly', () => {
+    const md = '# H1\n## H2\n### H3\n#### H4';
+    const blocks = Markdown.parseMarkdown(md);
+    expect(blocks.length).toBe(4);
+    expect(blocks[0]!.type).toBe('heading1');
+    expect(blocks[1]!.type).toBe('heading2');
+    expect(blocks[2]!.type).toBe('heading3');
+    expect(blocks[3]!.type).toBe('heading4');
+  });
+
+  // Numbered list
+  test('parses numbered list items', () => {
+    const md = '1. First\n2. Second\n3. Third';
+    const blocks = Markdown.parseMarkdown(md);
+    expect(blocks.length).toBe(3);
+    expect(blocks[0]!.type).toBe('numbered-list');
+    expect(blocks[0]!.content).toBe('First');
+    expect(blocks[0]!.listNumber).toBe(1);
+    expect(blocks[1]!.listNumber).toBe(2);
+    expect(blocks[2]!.listNumber).toBe(3);
+  });
+
+  test('numbered list preserves non-sequential numbers', () => {
+    const md = '5. Fifth\n10. Tenth';
+    const blocks = Markdown.parseMarkdown(md);
+    expect(blocks.length).toBe(2);
+    expect(blocks[0]!.listNumber).toBe(5);
+    expect(blocks[1]!.listNumber).toBe(10);
+  });
+
+  test('numbered list with inline formatting', () => {
+    const blocks = Markdown.parseMarkdown('1. A **bold** item');
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('numbered-list');
+    expect(blocks[0]!.content).toBe('A **bold** item');
+    const segments = Markdown.parseInline(blocks[0]!.content);
+    expect(segments[1]!.bold).toBe(true);
+  });
+
+  // Blockquote
+  test('parses single-line blockquote', () => {
+    const blocks = Markdown.parseMarkdown('> This is a quote');
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('blockquote');
+    expect(blocks[0]!.content).toBe('This is a quote');
+  });
+
+  test('parses multi-line blockquote', () => {
+    const md = '> Line one\n> Line two\n> Line three';
+    const blocks = Markdown.parseMarkdown(md);
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('blockquote');
+    expect(blocks[0]!.content).toBe('Line one\nLine two\nLine three');
+  });
+
+  test('blockquote stops at non-quote line', () => {
+    const md = '> Quoted\nNot quoted';
+    const blocks = Markdown.parseMarkdown(md);
+    expect(blocks.length).toBe(2);
+    expect(blocks[0]!.type).toBe('blockquote');
+    expect(blocks[0]!.content).toBe('Quoted');
+    expect(blocks[1]!.type).toBe('paragraph');
+  });
+
+  test('blockquote with no space after >', () => {
+    const blocks = Markdown.parseMarkdown('>NoSpace');
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('blockquote');
+    expect(blocks[0]!.content).toBe('NoSpace');
+  });
+
+  test('blockquote with empty content after >', () => {
+    const blocks = Markdown.parseMarkdown('>');
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('blockquote');
+    expect(blocks[0]!.content).toBe('');
+  });
+
+  // Horizontal rule
+  test('parses horizontal rule with dashes', () => {
+    const blocks = Markdown.parseMarkdown('---');
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('horizontal-rule');
+    expect(blocks[0]!.content).toBe('');
+  });
+
+  test('parses horizontal rule with asterisks', () => {
+    const blocks = Markdown.parseMarkdown('***');
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('horizontal-rule');
+  });
+
+  test('parses horizontal rule with underscores', () => {
+    const blocks = Markdown.parseMarkdown('___');
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('horizontal-rule');
+  });
+
+  test('parses long horizontal rules', () => {
+    const blocks = Markdown.parseMarkdown('----------');
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('horizontal-rule');
+  });
+
+  test('horizontal rule with trailing spaces', () => {
+    const blocks = Markdown.parseMarkdown('---   ');
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('horizontal-rule');
+  });
+
+  test('mixed dash/asterisk is NOT a horizontal rule', () => {
+    const blocks = Markdown.parseMarkdown('-*-');
+    expect(blocks.length).toBe(1);
+    // '-*-' has no space after '-', so it's not a bullet either; it's a paragraph
+    expect(blocks[0]!.type).toBe('paragraph');
+  });
+
+  test('dash bullet is NOT a horizontal rule', () => {
+    // '- item' should be a bullet, not confused with hr
+    const blocks = Markdown.parseMarkdown('- item');
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('bullet');
+  });
+
+  test('two dashes is NOT a horizontal rule', () => {
+    const blocks = Markdown.parseMarkdown('--');
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('paragraph');
+  });
+
+  // GFM Table
+  test('parses basic GFM table', () => {
+    const md = '| Name | Age |\n| --- | --- |\n| Alice | 30 |\n| Bob | 25 |';
+    const blocks = Markdown.parseMarkdown(md);
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('table');
+    expect(blocks[0]!.tableHeaders).toEqual(['Name', 'Age']);
+    expect(blocks[0]!.tableRows!.length).toBe(2);
+    expect(blocks[0]!.tableRows![0]).toEqual(['Alice', '30']);
+    expect(blocks[0]!.tableRows![1]).toEqual(['Bob', '25']);
+  });
+
+  test('parses table without leading/trailing pipes', () => {
+    const md = 'Name | Age\n--- | ---\nAlice | 30';
+    const blocks = Markdown.parseMarkdown(md);
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('table');
+    expect(blocks[0]!.tableHeaders).toEqual(['Name', 'Age']);
+    expect(blocks[0]!.tableRows![0]).toEqual(['Alice', '30']);
+  });
+
+  test('parses single-column table', () => {
+    const md = '| Item |\n| --- |\n| A |\n| B |';
+    const blocks = Markdown.parseMarkdown(md);
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('table');
+    expect(blocks[0]!.tableHeaders).toEqual(['Item']);
+    expect(blocks[0]!.tableRows!.length).toBe(2);
+  });
+
+  test('parses table with alignment markers', () => {
+    const md = '| Left | Center | Right |\n| :--- | :---: | ---: |\n| a | b | c |';
+    const blocks = Markdown.parseMarkdown(md);
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('table');
+    expect(blocks[0]!.tableHeaders).toEqual(['Left', 'Center', 'Right']);
+  });
+
+  test('table stops at empty line', () => {
+    const md = '| A | B |\n| --- | --- |\n| 1 | 2 |\n\nParagraph after';
+    const blocks = Markdown.parseMarkdown(md);
+    expect(blocks.length).toBe(2);
+    expect(blocks[0]!.type).toBe('table');
+    expect(blocks[1]!.type).toBe('paragraph');
+  });
+
+  test('table with mismatched column counts in rows', () => {
+    const md = '| A | B | C |\n| --- | --- | --- |\n| 1 | 2 |';
+    const blocks = Markdown.parseMarkdown(md);
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('table');
+    expect(blocks[0]!.tableHeaders).toEqual(['A', 'B', 'C']);
+    // Data row has fewer columns; should still parse
+    expect(blocks[0]!.tableRows![0]!.length).toBe(2);
+  });
+
+  test('table with no data rows', () => {
+    const md = '| Header |\n| --- |';
+    const blocks = Markdown.parseMarkdown(md);
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.type).toBe('table');
+    expect(blocks[0]!.tableHeaders).toEqual(['Header']);
+    expect(blocks[0]!.tableRows!.length).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// New inline type tests: strikethrough, bold-italic
+// ---------------------------------------------------------------------------
+
+describe('Markdown new inline types', () => {
+  test('parses strikethrough text', () => {
+    const segments = Markdown.parseInline('this is ~~deleted~~ text');
+    expect(segments.length).toBe(3);
+    expect(segments[0]!.text).toBe('this is ');
+    expect(segments[1]!.text).toBe('deleted');
+    expect(segments[1]!.strikethrough).toBe(true);
+    expect(segments[2]!.text).toBe(' text');
+  });
+
+  test('parses bold-italic text', () => {
+    const segments = Markdown.parseInline('this is ***important*** text');
+    expect(segments.length).toBe(3);
+    expect(segments[0]!.text).toBe('this is ');
+    expect(segments[1]!.text).toBe('important');
+    expect(segments[1]!.boldItalic).toBe(true);
+    expect(segments[2]!.text).toBe(' text');
+  });
+
+  test('bold-italic takes priority over bold', () => {
+    // ***text*** should be bold-italic, not bold with remaining asterisks
+    const segments = Markdown.parseInline('***both***');
+    expect(segments.length).toBe(1);
+    expect(segments[0]!.boldItalic).toBe(true);
+    expect(segments[0]!.bold).toBeUndefined();
+    expect(segments[0]!.italic).toBeUndefined();
+  });
+
+  test('strikethrough preserves text content', () => {
+    const input = 'before ~~strike~~ after';
+    const segments = Markdown.parseInline(input);
+    const reconstructed = segments.map((s) => s.text).join('');
+    expect(reconstructed).toBe('before strike after');
+  });
+
+  test('lone tilde without matching pair is plain text', () => {
+    const segments = Markdown.parseInline('foo ~ bar');
+    const fullText = segments.map((s) => s.text).join('');
+    expect(fullText).toBe('foo ~ bar');
+  });
+
+  test('single tilde pair is not strikethrough', () => {
+    const segments = Markdown.parseInline('foo ~bar~ baz');
+    const fullText = segments.map((s) => s.text).join('');
+    expect(fullText).toBe('foo ~bar~ baz');
+    // None should have strikethrough since we need ~~
+    const hasStrike = segments.some((s) => s.strikethrough);
+    expect(hasStrike).toBe(false);
+  });
+
+  test('mixed inline: bold-italic, strikethrough, code', () => {
+    const segments = Markdown.parseInline('***bi*** ~~del~~ `code`');
+    expect(segments.length).toBe(5);
+    expect(segments[0]!.boldItalic).toBe(true);
+    expect(segments[1]!.text).toBe(' ');
+    expect(segments[2]!.strikethrough).toBe(true);
+    expect(segments[3]!.text).toBe(' ');
+    expect(segments[4]!.code).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LRU Cache tests
+// ---------------------------------------------------------------------------
+
+describe('Markdown cache', () => {
+  beforeEach(() => {
+    Markdown.clearCache();
+  });
+
+  test('parseMarkdown returns cached results on second call', () => {
+    const md = '# Cached heading test';
+    const blocks1 = Markdown.parseMarkdown(md);
+    const blocks2 = Markdown.parseMarkdown(md);
+    // Should be the exact same array reference (from cache)
+    expect(blocks1).toBe(blocks2);
+  });
+
+  test('invalidateCache removes specific entry', () => {
+    const md = '# To invalidate';
+    const blocks1 = Markdown.parseMarkdown(md);
+    Markdown.invalidateCache(md);
+    const blocks2 = Markdown.parseMarkdown(md);
+    // After invalidation, should be a new array (not same reference)
+    expect(blocks1).not.toBe(blocks2);
+    // But contents should be equal
+    expect(blocks2.length).toBe(blocks1.length);
+    expect(blocks2[0]!.type).toBe('heading1');
+  });
+
+  test('clearCache removes all entries', () => {
+    const md1 = '# First cache clear test';
+    const md2 = '## Second cache clear test';
+    const blocks1a = Markdown.parseMarkdown(md1);
+    const blocks2a = Markdown.parseMarkdown(md2);
+    Markdown.clearCache();
+    const blocks1b = Markdown.parseMarkdown(md1);
+    const blocks2b = Markdown.parseMarkdown(md2);
+    expect(blocks1a).not.toBe(blocks1b);
+    expect(blocks2a).not.toBe(blocks2b);
+  });
+
+  test('enableCache option defaults to true', () => {
+    const md = new Markdown({ markdown: '# Test enableCache default' });
+    expect(md.enableCache).toBe(true);
+  });
+
+  test('enableCache option can be set to false', () => {
+    const md = new Markdown({ markdown: '# Test', enableCache: false });
+    expect(md.enableCache).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Horizontal rule disambiguation tests
+// ---------------------------------------------------------------------------
+
+describe('Horizontal rule disambiguation', () => {
+  beforeEach(() => {
+    Markdown.clearCache();
+  });
+
+  test('--- is a horizontal rule, not a bullet', () => {
+    const blocks = Markdown.parseMarkdown('---');
+    expect(blocks[0]!.type).toBe('horizontal-rule');
+  });
+
+  test('*** is a horizontal rule, not bold-italic', () => {
+    const blocks = Markdown.parseMarkdown('***');
+    expect(blocks[0]!.type).toBe('horizontal-rule');
+  });
+
+  test('___ is a horizontal rule', () => {
+    const blocks = Markdown.parseMarkdown('___');
+    expect(blocks[0]!.type).toBe('horizontal-rule');
+  });
+
+  test('***text*** on its own line is NOT a horizontal rule (text after)', () => {
+    const blocks = Markdown.parseMarkdown('***text***');
+    expect(blocks[0]!.type).toBe('paragraph');
+  });
+
+  test('---- (4 dashes) is a horizontal rule', () => {
+    const blocks = Markdown.parseMarkdown('----');
+    expect(blocks[0]!.type).toBe('horizontal-rule');
+  });
+
+  test('- - - (spaces between) is NOT a horizontal rule with this parser', () => {
+    // This parser requires all same chars without spaces
+    const blocks = Markdown.parseMarkdown('- - -');
+    // Each '- ' matches bullet pattern
+    expect(blocks[0]!.type).toBe('bullet');
   });
 });

@@ -37,7 +37,10 @@ export type { DialogType, FooterStyle, DialogButton, DialogDimensions } from './
 export { SelectionList, SelectionListState } from './widgets/selection-list';
 export type { SelectionItem } from './widgets/selection-list';
 export { DiffView } from './widgets/diff-view';
+export type { DiffLine, DiffHunk, WordDiff } from './widgets/diff-view';
 export { Markdown } from './widgets/markdown';
+export type { MarkdownBlockType, MarkdownBlock, InlineSegment } from './widgets/markdown';
+export { CollapsibleDrawer, CollapsibleDrawerState } from './widgets/collapsible-drawer';
 export { ContainerWithOverlays } from './widgets/container-with-overlays';
 export type { OverlayPosition, OverlayAlignment, OverlaySpec } from './widgets/container-with-overlays';
 

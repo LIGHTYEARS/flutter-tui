@@ -303,3 +303,50 @@ describe('ScrollController - isAnimating', () => {
     expect(controller.isAnimating).toBe(false);
   });
 });
+
+// ============================================================================
+// ScrollController - viewportSize
+// ============================================================================
+
+describe('ScrollController - viewportSize', () => {
+  let controller: ScrollController;
+
+  beforeEach(() => {
+    controller = new ScrollController();
+  });
+
+  afterEach(() => {
+    controller.dispose();
+  });
+
+  test('viewportSize defaults to 0', () => {
+    expect(controller.viewportSize).toBe(0);
+  });
+
+  test('updateViewportSize stores the value', () => {
+    controller.updateViewportSize(25);
+    expect(controller.viewportSize).toBe(25);
+  });
+
+  test('updateViewportSize can be called multiple times', () => {
+    controller.updateViewportSize(10);
+    expect(controller.viewportSize).toBe(10);
+
+    controller.updateViewportSize(30);
+    expect(controller.viewportSize).toBe(30);
+  });
+
+  test('updateViewportSize accepts 0', () => {
+    controller.updateViewportSize(50);
+    controller.updateViewportSize(0);
+    expect(controller.viewportSize).toBe(0);
+  });
+
+  test('viewportSize is independent of scroll offset', () => {
+    controller.updateMaxScrollExtent(100);
+    controller.updateViewportSize(20);
+    controller.jumpTo(50);
+    expect(controller.viewportSize).toBe(20);
+    expect(controller.offset).toBe(50);
+  });
+});

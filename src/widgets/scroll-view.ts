@@ -8,6 +8,9 @@ import { BoxConstraints } from '../core/box-constraints';
 import { Offset, Size } from '../core/types';
 import { ScrollController } from './scroll-controller';
 import { Key } from '../core/key';
+import { FocusScope } from './focus-scope';
+import { MouseRegion } from './mouse-region';
+import type { KeyEvent, KeyEventResult } from '../input/events';
 
 // ---------------------------------------------------------------------------
 // SingleChildScrollView (Amp: R4)
@@ -24,6 +27,8 @@ export class SingleChildScrollView extends StatelessWidget {
   readonly controller?: ScrollController;
   readonly scrollDirection: 'vertical' | 'horizontal';
   readonly position: 'top' | 'bottom';
+  readonly enableKeyboardScroll: boolean;
+  readonly enableMouseScroll: boolean;
 
   constructor(opts: {
     key?: Key;
@@ -31,12 +36,16 @@ export class SingleChildScrollView extends StatelessWidget {
     controller?: ScrollController;
     scrollDirection?: 'vertical' | 'horizontal';
     position?: 'top' | 'bottom';
+    enableKeyboardScroll?: boolean;
+    enableMouseScroll?: boolean;
   }) {
     super(opts.key !== undefined ? { key: opts.key } : undefined);
     this.child = opts.child;
     this.controller = opts.controller;
     this.scrollDirection = opts.scrollDirection ?? 'vertical';
     this.position = opts.position ?? 'top';
+    this.enableKeyboardScroll = opts.enableKeyboardScroll ?? false;
+    this.enableMouseScroll = opts.enableMouseScroll ?? true;
   }
 
   build(_context: BuildContext): Widget {
@@ -45,6 +54,8 @@ export class SingleChildScrollView extends StatelessWidget {
       controller: this.controller,
       scrollDirection: this.scrollDirection,
       position: this.position,
+      enableKeyboardScroll: this.enableKeyboardScroll,
+      enableMouseScroll: this.enableMouseScroll,
     });
   }
 }
@@ -64,6 +75,8 @@ export class Scrollable extends StatefulWidget {
   readonly controller?: ScrollController;
   readonly scrollDirection: 'vertical' | 'horizontal';
   readonly position: 'top' | 'bottom';
+  readonly enableKeyboardScroll: boolean;
+  readonly enableMouseScroll: boolean;
 
   constructor(opts: {
     key?: Key;
@@ -71,12 +84,16 @@ export class Scrollable extends StatefulWidget {
     controller?: ScrollController;
     scrollDirection?: 'vertical' | 'horizontal';
     position?: 'top' | 'bottom';
+    enableKeyboardScroll?: boolean;
+    enableMouseScroll?: boolean;
   }) {
     super(opts.key !== undefined ? { key: opts.key } : undefined);
     this.child = opts.child;
     this.controller = opts.controller;
     this.scrollDirection = opts.scrollDirection ?? 'vertical';
     this.position = opts.position ?? 'top';
+    this.enableKeyboardScroll = opts.enableKeyboardScroll ?? false;
+    this.enableMouseScroll = opts.enableMouseScroll ?? true;
   }
 
   createState(): State<Scrollable> {
@@ -105,13 +122,69 @@ class ScrollableState extends State<Scrollable> {
     super.dispose();
   }
 
+  private _handleKey = (event: KeyEvent): KeyEventResult => {
+    const ctrl = this.effectiveController;
+    const pageSize = ctrl.viewportSize || 20;
+
+    if (event.key === 'j' || event.key === 'ArrowDown') {
+      ctrl.scrollBy(1); return 'handled';
+    }
+    if (event.key === 'k' || event.key === 'ArrowUp') {
+      ctrl.scrollBy(-1); return 'handled';
+    }
+    if (event.key === 'g' && !event.ctrlKey && !event.shiftKey) {
+      ctrl.jumpTo(0); return 'handled';
+    }
+    if (event.key === 'G') {
+      ctrl.jumpTo(ctrl.maxScrollExtent); return 'handled';
+    }
+    if (event.key === 'PageDown') {
+      ctrl.scrollBy(pageSize); return 'handled';
+    }
+    if (event.key === 'PageUp') {
+      ctrl.scrollBy(-pageSize); return 'handled';
+    }
+    if (event.key === 'd' && event.ctrlKey) {
+      ctrl.scrollBy(Math.floor(pageSize / 2)); return 'handled';
+    }
+    if (event.key === 'u' && event.ctrlKey) {
+      ctrl.scrollBy(-Math.floor(pageSize / 2)); return 'handled';
+    }
+    return 'ignored';
+  };
+
+  private _handleScroll = (event: { button?: number }): void => {
+    if (event.button === 64) {
+      this.effectiveController.scrollBy(-3);
+    } else if (event.button === 65) {
+      this.effectiveController.scrollBy(3);
+    }
+  };
+
   build(_context: BuildContext): Widget {
-    return new ScrollViewport({
+    let child: Widget = new ScrollViewport({
       child: this.widget.child,
       controller: this.effectiveController,
       scrollDirection: this.widget.scrollDirection,
       position: this.widget.position,
     });
+
+    if (this.widget.enableMouseScroll) {
+      child = new MouseRegion({
+        onScroll: this._handleScroll,
+        child,
+      });
+    }
+
+    if (this.widget.enableKeyboardScroll) {
+      child = new FocusScope({
+        autofocus: true,
+        onKey: this._handleKey,
+        child,
+      });
+    }
+
+    return child;
   }
 }
 
@@ -257,6 +330,9 @@ export class RenderScrollViewport extends RenderBox {
       ? this.size.height
       : this.size.width;
     const maxExtent = Math.max(0, childMainSize - viewportMainSize);
+
+    // Update controller with viewport size
+    this.scrollController.updateViewportSize(viewportMainSize);
 
     // Update controller
     this.scrollController.updateMaxScrollExtent(maxExtent);

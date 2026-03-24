@@ -258,6 +258,7 @@ describe('RenderScrollbar', () => {
     render.showTrack = true;
     render.trackChar = '.';
     render.thumbChar = '#';
+    render.subCharacterPrecision = false;
     render.scrollInfo = {
       totalContentHeight: 100,
       viewportHeight: 20,
@@ -287,6 +288,7 @@ describe('RenderScrollbar', () => {
     const render = new RenderScrollbar();
     render.showTrack = false;
     render.thumbChar = '#';
+    render.subCharacterPrecision = false;
     render.scrollInfo = {
       totalContentHeight: 100,
       viewportHeight: 20,
@@ -316,6 +318,7 @@ describe('RenderScrollbar', () => {
     render.showTrack = false;
     render.thumbChar = '#';
     render.thumbColor = Color.green;
+    render.subCharacterPrecision = false;
     render.scrollInfo = {
       totalContentHeight: 100,
       viewportHeight: 10,
@@ -416,5 +419,205 @@ describe('RenderScrollbar', () => {
     // thumbHeight = max(1, round((20 / 100) * 20)) = 4
     expect(metrics!.thumbHeight).toBe(4);
     expect(metrics!.thumbTop).toBe(0);
+  });
+});
+
+// ============================================================================
+// Scrollbar subCharacterPrecision option tests
+// ============================================================================
+
+describe('Scrollbar subCharacterPrecision', () => {
+  test('subCharacterPrecision defaults to true', () => {
+    const scrollbar = new Scrollbar({});
+    expect(scrollbar.subCharacterPrecision).toBe(true);
+  });
+
+  test('subCharacterPrecision can be set to false', () => {
+    const scrollbar = new Scrollbar({ subCharacterPrecision: false });
+    expect(scrollbar.subCharacterPrecision).toBe(false);
+  });
+
+  test('subCharacterPrecision can be set to true explicitly', () => {
+    const scrollbar = new Scrollbar({ subCharacterPrecision: true });
+    expect(scrollbar.subCharacterPrecision).toBe(true);
+  });
+
+  test('RenderScrollbar subCharacterPrecision defaults to true', () => {
+    const render = new RenderScrollbar();
+    expect(render.subCharacterPrecision).toBe(true);
+  });
+
+  test('sub-character precision uses block elements instead of thumbChar', () => {
+    const render = new RenderScrollbar();
+    render.subCharacterPrecision = true;
+    render.showTrack = false;
+    render.thumbChar = '#';
+    render.scrollInfo = {
+      totalContentHeight: 100,
+      viewportHeight: 20,
+      scrollOffset: 0,
+    };
+
+    const constraints = new BoxConstraints({
+      minWidth: 0,
+      maxWidth: 80,
+      minHeight: 0,
+      maxHeight: 20,
+    });
+    render.layout(constraints);
+
+    const ctx = new MockPaintContext();
+    render.paint(ctx as any, new Offset(0, 0));
+
+    // Should NOT draw '#' when using sub-character precision
+    const thumbChars = ctx.drawn.filter((d) => d.char === '#');
+    expect(thumbChars.length).toBe(0);
+
+    // Should draw block elements instead
+    const blockElements = ctx.drawn.filter((d) =>
+      d.char === '\u2581' || d.char === '\u2582' || d.char === '\u2583' ||
+      d.char === '\u2584' || d.char === '\u2585' || d.char === '\u2586' ||
+      d.char === '\u2587' || d.char === '\u2588'
+    );
+    expect(blockElements.length).toBeGreaterThan(0);
+  });
+
+  test('sub-character precision draws nothing when content fits viewport', () => {
+    const render = new RenderScrollbar();
+    render.subCharacterPrecision = true;
+    render.showTrack = false;
+    render.scrollInfo = {
+      totalContentHeight: 10,
+      viewportHeight: 20,
+      scrollOffset: 0,
+    };
+
+    const constraints = new BoxConstraints({
+      minWidth: 0,
+      maxWidth: 80,
+      minHeight: 0,
+      maxHeight: 20,
+    });
+    render.layout(constraints);
+
+    const ctx = new MockPaintContext();
+    render.paint(ctx as any, new Offset(0, 0));
+
+    // No block elements should be drawn
+    expect(ctx.drawn.length).toBe(0);
+  });
+
+  test('sub-character precision handles zero scroll extent', () => {
+    const render = new RenderScrollbar();
+    render.subCharacterPrecision = true;
+    render.showTrack = false;
+    render.scrollInfo = {
+      totalContentHeight: 0,
+      viewportHeight: 20,
+      scrollOffset: 0,
+    };
+
+    const constraints = new BoxConstraints({
+      minWidth: 0,
+      maxWidth: 80,
+      minHeight: 0,
+      maxHeight: 20,
+    });
+    render.layout(constraints);
+
+    const ctx = new MockPaintContext();
+    render.paint(ctx as any, new Offset(0, 0));
+
+    // No drawing should happen
+    expect(ctx.drawn.length).toBe(0);
+  });
+
+  test('classic rendering (subCharacterPrecision=false) uses thumbChar', () => {
+    const render = new RenderScrollbar();
+    render.subCharacterPrecision = false;
+    render.showTrack = false;
+    render.thumbChar = '#';
+    render.scrollInfo = {
+      totalContentHeight: 100,
+      viewportHeight: 20,
+      scrollOffset: 0,
+    };
+
+    const constraints = new BoxConstraints({
+      minWidth: 0,
+      maxWidth: 80,
+      minHeight: 0,
+      maxHeight: 20,
+    });
+    render.layout(constraints);
+
+    const ctx = new MockPaintContext();
+    render.paint(ctx as any, new Offset(0, 0));
+
+    const thumbChars = ctx.drawn.filter((d) => d.char === '#');
+    expect(thumbChars.length).toBeGreaterThan(0);
+  });
+
+  test('sub-character precision applies thumbColor to block elements', () => {
+    const render = new RenderScrollbar();
+    render.subCharacterPrecision = true;
+    render.showTrack = false;
+    render.thumbColor = Color.green;
+    render.scrollInfo = {
+      totalContentHeight: 100,
+      viewportHeight: 20,
+      scrollOffset: 0,
+    };
+
+    const constraints = new BoxConstraints({
+      minWidth: 0,
+      maxWidth: 80,
+      minHeight: 0,
+      maxHeight: 20,
+    });
+    render.layout(constraints);
+
+    const ctx = new MockPaintContext();
+    render.paint(ctx as any, new Offset(0, 0));
+
+    const blockElements = ctx.drawn.filter((d) =>
+      d.char >= '\u2581' && d.char <= '\u2588'
+    );
+    expect(blockElements.length).toBeGreaterThan(0);
+    // All block elements should have the thumb color
+    for (const el of blockElements) {
+      expect(el.style).toEqual({ fg: Color.green });
+    }
+  });
+
+  test('sub-character precision full block at full scroll renders at bottom', () => {
+    const render = new RenderScrollbar();
+    render.subCharacterPrecision = true;
+    render.showTrack = false;
+    render.scrollInfo = {
+      totalContentHeight: 100,
+      viewportHeight: 20,
+      scrollOffset: 80, // fully scrolled: totalContent - viewport = 80
+    };
+
+    const constraints = new BoxConstraints({
+      minWidth: 0,
+      maxWidth: 80,
+      minHeight: 0,
+      maxHeight: 20,
+    });
+    render.layout(constraints);
+
+    const ctx = new MockPaintContext();
+    render.paint(ctx as any, new Offset(0, 0));
+
+    const blockElements = ctx.drawn.filter((d) =>
+      d.char >= '\u2581' && d.char <= '\u2588'
+    );
+    expect(blockElements.length).toBeGreaterThan(0);
+
+    // The last block element should be at or near the bottom of the viewport
+    const maxRow = Math.max(...blockElements.map(e => e.y));
+    expect(maxRow).toBe(19); // row 19 is the last row of a 20-row viewport
   });
 });

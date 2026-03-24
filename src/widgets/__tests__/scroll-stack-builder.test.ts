@@ -5,6 +5,8 @@ import { describe, test, expect, beforeEach } from 'bun:test';
 import { ScrollController } from '../scroll-controller';
 import {
   RenderScrollViewport,
+  SingleChildScrollView,
+  Scrollable,
 } from '../scroll-view';
 import {
   Stack,
@@ -685,5 +687,156 @@ describe('Builder', () => {
 
     const result = builder.build(mockContext);
     expect(result).toBe(expected);
+  });
+});
+
+// ============================================================================
+// SingleChildScrollView option defaults
+// ============================================================================
+
+describe('SingleChildScrollView options', () => {
+  test('enableKeyboardScroll defaults to false', () => {
+    const view = new SingleChildScrollView({
+      child: new TestWidget('content'),
+    });
+    expect(view.enableKeyboardScroll).toBe(false);
+  });
+
+  test('enableMouseScroll defaults to true', () => {
+    const view = new SingleChildScrollView({
+      child: new TestWidget('content'),
+    });
+    expect(view.enableMouseScroll).toBe(true);
+  });
+
+  test('enableKeyboardScroll can be set to true', () => {
+    const view = new SingleChildScrollView({
+      child: new TestWidget('content'),
+      enableKeyboardScroll: true,
+    });
+    expect(view.enableKeyboardScroll).toBe(true);
+  });
+
+  test('enableMouseScroll can be set to false', () => {
+    const view = new SingleChildScrollView({
+      child: new TestWidget('content'),
+      enableMouseScroll: false,
+    });
+    expect(view.enableMouseScroll).toBe(false);
+  });
+
+  test('scrollDirection defaults to vertical', () => {
+    const view = new SingleChildScrollView({
+      child: new TestWidget('content'),
+    });
+    expect(view.scrollDirection).toBe('vertical');
+  });
+
+  test('position defaults to top', () => {
+    const view = new SingleChildScrollView({
+      child: new TestWidget('content'),
+    });
+    expect(view.position).toBe('top');
+  });
+});
+
+// ============================================================================
+// Scrollable option defaults
+// ============================================================================
+
+describe('Scrollable options', () => {
+  test('enableKeyboardScroll defaults to false', () => {
+    const scrollable = new Scrollable({
+      child: new TestWidget('content'),
+    });
+    expect(scrollable.enableKeyboardScroll).toBe(false);
+  });
+
+  test('enableMouseScroll defaults to true', () => {
+    const scrollable = new Scrollable({
+      child: new TestWidget('content'),
+    });
+    expect(scrollable.enableMouseScroll).toBe(true);
+  });
+
+  test('enableKeyboardScroll can be set to true', () => {
+    const scrollable = new Scrollable({
+      child: new TestWidget('content'),
+      enableKeyboardScroll: true,
+    });
+    expect(scrollable.enableKeyboardScroll).toBe(true);
+  });
+
+  test('enableMouseScroll can be set to false', () => {
+    const scrollable = new Scrollable({
+      child: new TestWidget('content'),
+      enableMouseScroll: false,
+    });
+    expect(scrollable.enableMouseScroll).toBe(false);
+  });
+});
+
+// ============================================================================
+// RenderScrollViewport updates viewportSize on controller
+// ============================================================================
+
+describe('RenderScrollViewport - viewportSize', () => {
+  test('updates controller viewportSize during layout', () => {
+    const controller = new ScrollController();
+    const viewport = new RenderScrollViewport({ scrollController: controller });
+    const child = new TestRenderBox(new Size(40, 100));
+    viewport.child = child;
+
+    viewport.layout(new BoxConstraints({
+      minWidth: 0,
+      maxWidth: 40,
+      minHeight: 0,
+      maxHeight: 25,
+    }));
+
+    expect(controller.viewportSize).toBe(25);
+  });
+
+  test('updates controller viewportSize for horizontal scroll', () => {
+    const controller = new ScrollController();
+    const viewport = new RenderScrollViewport({
+      scrollController: controller,
+      axisDirection: 'horizontal',
+    });
+    const child = new TestRenderBox(new Size(100, 20));
+    viewport.child = child;
+
+    viewport.layout(new BoxConstraints({
+      minWidth: 0,
+      maxWidth: 50,
+      minHeight: 0,
+      maxHeight: 20,
+    }));
+
+    // For horizontal scroll, viewportMainSize = width
+    expect(controller.viewportSize).toBe(50);
+  });
+
+  test('viewportSize updates on re-layout with different constraints', () => {
+    const controller = new ScrollController();
+    const viewport = new RenderScrollViewport({ scrollController: controller });
+    const child = new TestRenderBox(new Size(40, 100));
+    viewport.child = child;
+
+    viewport.layout(new BoxConstraints({
+      minWidth: 0,
+      maxWidth: 40,
+      minHeight: 0,
+      maxHeight: 20,
+    }));
+    expect(controller.viewportSize).toBe(20);
+
+    viewport.layout(new BoxConstraints({
+      minWidth: 0,
+      maxWidth: 40,
+      minHeight: 0,
+      maxHeight: 30,
+    }));
+    expect(controller.viewportSize).toBe(30);
   });
 });

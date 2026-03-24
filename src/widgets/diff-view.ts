@@ -25,7 +25,7 @@ import { syntaxHighlight } from './syntax-highlight';
 type DiffLineType = 'addition' | 'deletion' | 'hunk-header' | 'context' | 'meta';
 
 /** A parsed diff line with its type and original/new line numbers. */
-interface DiffLine {
+export interface DiffLine {
   readonly type: DiffLineType;
   readonly content: string;
   readonly oldLineNumber?: number;
@@ -33,11 +33,17 @@ interface DiffLine {
 }
 
 /** A parsed hunk from a unified diff. */
-interface DiffHunk {
+export interface DiffHunk {
   readonly header: string;
   readonly lines: DiffLine[];
   readonly oldStart: number;
   readonly newStart: number;
+}
+
+/** A word-level diff segment indicating whether the word was same, added, or removed. */
+export interface WordDiff {
+  readonly text: string;
+  readonly type: 'same' | 'added' | 'removed';
 }
 
 // ---------------------------------------------------------------------------
@@ -66,6 +72,8 @@ export class DiffView extends StatelessWidget {
   readonly diff: string;
   readonly showLineNumbers: boolean;
   readonly context?: number;
+  readonly ignoreWhitespace: boolean;
+  readonly wordLevelDiff: boolean;
 
   constructor(opts: {
     key?: Key;
@@ -73,12 +81,16 @@ export class DiffView extends StatelessWidget {
     showLineNumbers?: boolean;
     context?: number;
     filePath?: string;
+    ignoreWhitespace?: boolean;
+    wordLevelDiff?: boolean;
   }) {
     super(opts.key !== undefined ? { key: opts.key } : undefined);
     this.diff = opts.diff;
     this.showLineNumbers = opts.showLineNumbers ?? true;
     this.context = opts.context;
     this.filePath = opts.filePath;
+    this.ignoreWhitespace = opts.ignoreWhitespace ?? false;
+    this.wordLevelDiff = opts.wordLevelDiff ?? true;
   }
 
   /** Optional filePath hint for syntax highlighting of diff content. */
@@ -91,9 +103,40 @@ export class DiffView extends StatelessWidget {
     const lines = this._collectDisplayLines(hunks);
     const children: Widget[] = [];
 
-    for (const line of lines) {
+    for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+      const line = lines[lineIdx]!;
       const style = this._styleForLineType(line.type, themeData);
       let displayText: string;
+
+      // Word-level diff: detect adjacent deletion+addition pairs
+      if (
+        this.wordLevelDiff &&
+        line.type === 'deletion' &&
+        lineIdx + 1 < lines.length &&
+        lines[lineIdx + 1]!.type === 'addition'
+      ) {
+        const nextLine = lines[lineIdx + 1]!;
+        const oldContent = line.content.length > 0 ? line.content.slice(1) : '';
+        const newContent = nextLine.content.length > 0 ? nextLine.content.slice(1) : '';
+        const wordDiffs = DiffView.computeWordDiff(oldContent, newContent);
+
+        // Render deletion line with word-level highlighting
+        const deletionStyle = this._styleForLineType('deletion', themeData);
+        const deletionSpans = this._buildWordDiffSpans(
+          line, wordDiffs, 'removed', deletionStyle, themeData,
+        );
+        children.push(new Text({ text: new TextSpan({ children: deletionSpans }) }));
+
+        // Render addition line with word-level highlighting
+        const additionStyle = this._styleForLineType('addition', themeData);
+        const additionSpans = this._buildWordDiffSpans(
+          nextLine, wordDiffs, 'added', additionStyle, themeData,
+        );
+        children.push(new Text({ text: new TextSpan({ children: additionSpans }) }));
+
+        lineIdx++; // skip the addition line, already rendered
+        continue;
+      }
 
       if (this.showLineNumbers && line.type !== 'meta' && line.type !== 'hunk-header') {
         const oldNum = line.oldLineNumber !== undefined
@@ -282,8 +325,156 @@ export class DiffView extends StatelessWidget {
   }
 
   // ---------------------------------------------------------------------------
+  // Static: computeDiff — Myers diff algorithm (O(ND))
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Compute a unified diff between two text strings using the Myers diff algorithm.
+   * Self-contained, no external dependencies.
+   *
+   * @param oldText - The original text
+   * @param newText - The modified text
+   * @param options - Optional configuration
+   * @returns Unified diff format string
+   */
+  static computeDiff(
+    oldText: string,
+    newText: string,
+    options?: {
+      ignoreWhitespace?: boolean;
+      contextLines?: number;
+      fileName?: string;
+    },
+  ): string {
+    const contextLines = options?.contextLines ?? 3;
+    const fileName = options?.fileName ?? 'file';
+    const ignoreWs = options?.ignoreWhitespace ?? false;
+
+    const oldLines = oldText.length === 0 ? [] : oldText.split('\n');
+    const newLines = newText.length === 0 ? [] : newText.split('\n');
+
+    // Normalize for comparison if ignoreWhitespace
+    const oldCmp = ignoreWs ? oldLines.map((l) => l.trimEnd()) : oldLines;
+    const newCmp = ignoreWs ? newLines.map((l) => l.trimEnd()) : newLines;
+
+    // Run Myers diff on lines to get edit script
+    const editScript = DiffView._myersDiff(oldCmp, newCmp);
+
+    // If no changes, return empty string
+    if (editScript.every((op) => op.type === 'equal')) {
+      return '';
+    }
+
+    // Group into hunks with context
+    const hunks = DiffView._buildHunks(editScript, oldLines, newLines, contextLines);
+
+    // Format as unified diff
+    const result: string[] = [];
+    result.push(`--- a/${fileName}`);
+    result.push(`+++ b/${fileName}`);
+
+    for (const hunk of hunks) {
+      result.push(
+        `@@ -${hunk.oldStart},${hunk.oldCount} +${hunk.newStart},${hunk.newCount} @@`,
+      );
+      for (const line of hunk.lines) {
+        result.push(line);
+      }
+    }
+
+    return result.join('\n');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Static: computeWordDiff
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Compute word-level diff between two lines.
+   * Splits each line into tokens (words and whitespace), then applies Myers diff
+   * at the token level.
+   *
+   * @param oldLine - The original line text (without leading -/+ prefix)
+   * @param newLine - The new line text (without leading -/+ prefix)
+   * @returns Array of WordDiff segments
+   */
+  static computeWordDiff(oldLine: string, newLine: string): WordDiff[] {
+    const oldTokens = DiffView._tokenizeWords(oldLine);
+    const newTokens = DiffView._tokenizeWords(newLine);
+
+    const editScript = DiffView._myersDiff(oldTokens, newTokens);
+
+    const result: WordDiff[] = [];
+    for (const op of editScript) {
+      if (op.type === 'equal') {
+        result.push({ text: op.oldVal!, type: 'same' });
+      } else if (op.type === 'delete') {
+        result.push({ text: op.oldVal!, type: 'removed' });
+      } else if (op.type === 'insert') {
+        result.push({ text: op.newVal!, type: 'added' });
+      }
+    }
+    return result;
+  }
+
+  // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  /**
+   * Build TextSpan children for a word-diff enhanced line.
+   * @param line - The DiffLine being rendered
+   * @param wordDiffs - The computed word diffs for this pair
+   * @param highlightType - Which type to highlight ('removed' for deletion lines, 'added' for addition lines)
+   * @param baseStyle - The base style for this line type
+   * @param themeData - Optional theme data
+   */
+  private _buildWordDiffSpans(
+    line: DiffLine,
+    wordDiffs: WordDiff[],
+    highlightType: 'removed' | 'added',
+    baseStyle: TextStyle,
+    _themeData?: ThemeData,
+  ): TextSpan[] {
+    const spans: TextSpan[] = [];
+
+    // Build prefix (line numbers + leading char)
+    let prefix: string;
+    if (this.showLineNumbers && line.type !== 'meta' && line.type !== 'hunk-header') {
+      const oldNum = line.oldLineNumber !== undefined
+        ? String(line.oldLineNumber).padStart(4, ' ')
+        : '    ';
+      const newNum = line.newLineNumber !== undefined
+        ? String(line.newLineNumber).padStart(4, ' ')
+        : '    ';
+      prefix = `${oldNum} ${newNum} ${line.content.charAt(0)}`;
+    } else {
+      prefix = line.content.charAt(0);
+    }
+
+    spans.push(new TextSpan({ text: prefix, style: baseStyle }));
+
+    // Background colors for highlighted words
+    const highlightBg = highlightType === 'added'
+      ? Color.rgb(0, 60, 0)   // dark green
+      : Color.rgb(60, 0, 0);  // dark red
+
+    const highlightStyle = new TextStyle({
+      foreground: baseStyle.foreground,
+      background: highlightBg,
+    });
+
+    for (const wd of wordDiffs) {
+      if (wd.type === 'same') {
+        spans.push(new TextSpan({ text: wd.text, style: baseStyle }));
+      } else if (wd.type === highlightType) {
+        spans.push(new TextSpan({ text: wd.text, style: highlightStyle }));
+      }
+      // Skip the opposite type (e.g., 'added' words on a deletion line)
+    }
+
+    return spans;
+  }
 
   /**
    * Collect all display lines from parsed hunks, applying context filtering
@@ -383,5 +574,300 @@ export class DiffView extends StatelessWidget {
           foreground: themeData?.text ?? Color.rgb(220, 220, 220),
         });
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Myers Diff Algorithm — private static helpers
+  // ---------------------------------------------------------------------------
+
+  /** Edit operation from Myers diff. */
+  private static _myersDiff<T>(
+    oldArr: readonly T[],
+    newArr: readonly T[],
+  ): Array<{ type: 'equal' | 'insert' | 'delete'; oldVal?: T; newVal?: T }> {
+    const N = oldArr.length;
+    const M = newArr.length;
+
+    // Edge case: both empty
+    if (N === 0 && M === 0) return [];
+
+    // Edge case: old is empty — all inserts
+    if (N === 0) {
+      return newArr.map((v) => ({ type: 'insert' as const, newVal: v }));
+    }
+
+    // Edge case: new is empty — all deletes
+    if (M === 0) {
+      return oldArr.map((v) => ({ type: 'delete' as const, oldVal: v }));
+    }
+
+    const MAX = N + M;
+    // V array indexed from -MAX to MAX. We use offset to map to 0-based.
+    const size = 2 * MAX + 1;
+
+    // Store the V array for each D step so we can trace back
+    const vHistory: Int32Array[] = [];
+
+    // Current V: v[k + MAX] = x value on diagonal k with furthest reach
+    const v = new Int32Array(size);
+    v[1 + MAX] = 0;
+
+    let found = false;
+    let finalD = 0;
+
+    outer:
+    for (let d = 0; d <= MAX; d++) {
+      // Save a copy of V before mutation for trace-back
+      vHistory.push(new Int32Array(v));
+
+      for (let k = -d; k <= d; k += 2) {
+        let x: number;
+
+        if (k === -d || (k !== d && v[k - 1 + MAX]! < v[k + 1 + MAX]!)) {
+          // Move down (insert from new)
+          x = v[k + 1 + MAX]!;
+        } else {
+          // Move right (delete from old)
+          x = v[k - 1 + MAX]! + 1;
+        }
+
+        let y = x - k;
+
+        // Follow diagonal (equal elements)
+        while (x < N && y < M && oldArr[x] === newArr[y]) {
+          x++;
+          y++;
+        }
+
+        v[k + MAX] = x;
+
+        if (x >= N && y >= M) {
+          // We reached the end
+          finalD = d;
+          found = true;
+          break outer;
+        }
+      }
+    }
+
+    if (!found) {
+      // Should not happen for valid inputs, but just in case
+      finalD = MAX;
+    }
+
+    // Trace back: reconstruct the edit path
+    const edits: Array<{ type: 'equal' | 'insert' | 'delete'; oldVal?: T; newVal?: T }> = [];
+
+    let x = N;
+    let y = M;
+
+    for (let d = finalD; d > 0; d--) {
+      const vPrev = vHistory[d]!;
+      const k = x - y;
+
+      let prevK: number;
+      if (k === -d || (k !== d && vPrev[k - 1 + MAX]! < vPrev[k + 1 + MAX]!)) {
+        prevK = k + 1; // came from insert (down)
+      } else {
+        prevK = k - 1; // came from delete (right)
+      }
+
+      const prevX = vPrev[prevK + MAX]!;
+      const prevY = prevX - prevK;
+
+      // Add diagonal (equal) moves from (prevX, prevY) to the point just before (x, y) step
+      // The current position was reached via a non-diagonal move from (midX, midY)
+      // then diagonal to (x, y). Let's compute the mid-point.
+      let midX: number;
+      let midY: number;
+
+      if (prevK === k + 1) {
+        // Insert: moved from (prevX, prevY) down to (prevX, prevY+1), then diagonal
+        midX = prevX;
+        midY = prevY + 1;
+      } else {
+        // Delete: moved from (prevX, prevY) right to (prevX+1, prevY), then diagonal
+        midX = prevX + 1;
+        midY = prevY;
+      }
+
+      // Diagonal moves from (midX, midY) to (x, y)
+      while (x > midX && y > midY) {
+        x--;
+        y--;
+        edits.push({ type: 'equal', oldVal: oldArr[x], newVal: newArr[y] });
+      }
+
+      // The non-diagonal step
+      if (prevK === k + 1) {
+        // Insert
+        y--;
+        edits.push({ type: 'insert', newVal: newArr[y] });
+      } else {
+        // Delete
+        x--;
+        edits.push({ type: 'delete', oldVal: oldArr[x] });
+      }
+    }
+
+    // Any remaining diagonal moves from (0,0) to current (x,y)
+    while (x > 0 && y > 0) {
+      x--;
+      y--;
+      edits.push({ type: 'equal', oldVal: oldArr[x], newVal: newArr[y] });
+    }
+
+    // Reverse to get forward order
+    edits.reverse();
+
+    return edits;
+  }
+
+  /**
+   * Tokenize a line into words and whitespace segments.
+   * Keeps whitespace as separate tokens so the diff preserves spacing.
+   */
+  private static _tokenizeWords(line: string): string[] {
+    const tokens: string[] = [];
+    const regex = /(\s+|\S+)/g;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(line)) !== null) {
+      tokens.push(match[0]!);
+    }
+    return tokens;
+  }
+
+  /**
+   * Build unified diff hunks from an edit script, grouping changes
+   * with the specified number of context lines.
+   */
+  private static _buildHunks(
+    editScript: Array<{ type: 'equal' | 'insert' | 'delete'; oldVal?: unknown; newVal?: unknown }>,
+    oldLines: string[],
+    newLines: string[],
+    contextLines: number,
+  ): Array<{ oldStart: number; oldCount: number; newStart: number; newCount: number; lines: string[] }> {
+    // Assign line numbers to each edit op
+    interface EditWithPos {
+      type: 'equal' | 'insert' | 'delete';
+      oldIdx?: number;
+      newIdx?: number;
+    }
+    const ops: EditWithPos[] = [];
+    let oldIdx = 0;
+    let newIdx = 0;
+    for (const op of editScript) {
+      if (op.type === 'equal') {
+        ops.push({ type: 'equal', oldIdx, newIdx });
+        oldIdx++;
+        newIdx++;
+      } else if (op.type === 'delete') {
+        ops.push({ type: 'delete', oldIdx });
+        oldIdx++;
+      } else {
+        ops.push({ type: 'insert', newIdx });
+        newIdx++;
+      }
+    }
+
+    // Find ranges of changes (non-equal ops) and expand with context
+    const changeIndices: number[] = [];
+    for (let i = 0; i < ops.length; i++) {
+      if (ops[i]!.type !== 'equal') {
+        changeIndices.push(i);
+      }
+    }
+
+    if (changeIndices.length === 0) return [];
+
+    // Group changes into hunk ranges with context
+    const hunkRanges: Array<{ start: number; end: number }> = [];
+    let rangeStart = Math.max(0, changeIndices[0]! - contextLines);
+    let rangeEnd = Math.min(ops.length - 1, changeIndices[0]! + contextLines);
+
+    for (let i = 1; i < changeIndices.length; i++) {
+      const changeStart = changeIndices[i]! - contextLines;
+      const changeEnd = changeIndices[i]! + contextLines;
+
+      if (changeStart <= rangeEnd + 1) {
+        // Merge with current range
+        rangeEnd = Math.min(ops.length - 1, changeEnd);
+      } else {
+        // Save current range and start new one
+        hunkRanges.push({ start: rangeStart, end: rangeEnd });
+        rangeStart = Math.max(0, changeStart);
+        rangeEnd = Math.min(ops.length - 1, changeEnd);
+      }
+    }
+    hunkRanges.push({ start: rangeStart, end: rangeEnd });
+
+    // Convert ranges to hunk output
+    const hunks: Array<{
+      oldStart: number;
+      oldCount: number;
+      newStart: number;
+      newCount: number;
+      lines: string[];
+    }> = [];
+
+    for (const range of hunkRanges) {
+      const hunkLines: string[] = [];
+      let hunkOldStart = -1;
+      let hunkNewStart = -1;
+      let hunkOldCount = 0;
+      let hunkNewCount = 0;
+
+      for (let i = range.start; i <= range.end; i++) {
+        const op = ops[i]!;
+        if (op.type === 'equal') {
+          if (hunkOldStart === -1) hunkOldStart = op.oldIdx!;
+          if (hunkNewStart === -1) hunkNewStart = op.newIdx!;
+          hunkLines.push(` ${oldLines[op.oldIdx!]}`);
+          hunkOldCount++;
+          hunkNewCount++;
+        } else if (op.type === 'delete') {
+          if (hunkOldStart === -1) hunkOldStart = op.oldIdx!;
+          if (hunkNewStart === -1) {
+            // Find the corresponding new line position
+            // Look ahead for the next equal or insert op
+            for (let j = i + 1; j <= range.end; j++) {
+              if (ops[j]!.newIdx !== undefined) {
+                hunkNewStart = ops[j]!.newIdx!;
+                break;
+              }
+            }
+            if (hunkNewStart === -1) hunkNewStart = newLines.length;
+          }
+          hunkLines.push(`-${oldLines[op.oldIdx!]}`);
+          hunkOldCount++;
+        } else {
+          // insert
+          if (hunkNewStart === -1) hunkNewStart = op.newIdx!;
+          if (hunkOldStart === -1) {
+            // Look ahead for next equal or delete op
+            for (let j = i + 1; j <= range.end; j++) {
+              if (ops[j]!.oldIdx !== undefined) {
+                hunkOldStart = ops[j]!.oldIdx!;
+                break;
+              }
+            }
+            if (hunkOldStart === -1) hunkOldStart = oldLines.length;
+          }
+          hunkLines.push(`+${newLines[op.newIdx!]}`);
+          hunkNewCount++;
+        }
+      }
+
+      // Use 1-based line numbers
+      hunks.push({
+        oldStart: hunkOldStart + 1,
+        oldCount: hunkOldCount,
+        newStart: hunkNewStart + 1,
+        newCount: hunkNewCount,
+        lines: hunkLines,
+      });
+    }
+
+    return hunks;
   }
 }

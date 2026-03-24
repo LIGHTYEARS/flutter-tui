@@ -19,6 +19,9 @@ import { Color } from '../core/color';
 import { ScrollController } from './scroll-controller';
 import { Key } from '../core/key';
 
+/** Unicode lower-block elements for 1/8 character precision scrollbar rendering (amp ref: ia class). */
+const BLOCK_ELEMENTS = [' ', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
+
 // ---------------------------------------------------------------------------
 // ScrollInfo — describes current scroll state for rendering the scrollbar
 // ---------------------------------------------------------------------------
@@ -64,6 +67,7 @@ export class Scrollbar extends StatefulWidget {
   readonly showTrack: boolean;
   readonly thumbColor?: Color;
   readonly trackColor?: Color;
+  readonly subCharacterPrecision: boolean;
 
   constructor(opts: {
     key?: Key;
@@ -75,6 +79,7 @@ export class Scrollbar extends StatefulWidget {
     showTrack?: boolean;
     thumbColor?: Color;
     trackColor?: Color;
+    subCharacterPrecision?: boolean;
   }) {
     super(opts.key !== undefined ? { key: opts.key } : undefined);
     this.controller = opts.controller;
@@ -85,6 +90,7 @@ export class Scrollbar extends StatefulWidget {
     this.showTrack = opts.showTrack ?? true;
     this.thumbColor = opts.thumbColor;
     this.trackColor = opts.trackColor;
+    this.subCharacterPrecision = opts.subCharacterPrecision ?? true;
   }
 
   createState(): State<Scrollbar> {
@@ -153,6 +159,7 @@ class ScrollbarState extends State<Scrollbar> {
       showTrack: this.widget.showTrack,
       thumbColor: this.widget.thumbColor,
       trackColor: this.widget.trackColor,
+      subCharacterPrecision: this.widget.subCharacterPrecision,
     });
   }
 }
@@ -169,6 +176,7 @@ class _ScrollbarRender extends LeafRenderObjectWidget {
   readonly showTrack: boolean;
   readonly thumbColor?: Color;
   readonly trackColor?: Color;
+  readonly subCharacterPrecision: boolean;
 
   constructor(opts: {
     scrollInfo?: ScrollInfo;
@@ -178,6 +186,7 @@ class _ScrollbarRender extends LeafRenderObjectWidget {
     showTrack: boolean;
     thumbColor?: Color;
     trackColor?: Color;
+    subCharacterPrecision: boolean;
   }) {
     super();
     this.scrollInfo = opts.scrollInfo;
@@ -187,6 +196,7 @@ class _ScrollbarRender extends LeafRenderObjectWidget {
     this.showTrack = opts.showTrack;
     this.thumbColor = opts.thumbColor;
     this.trackColor = opts.trackColor;
+    this.subCharacterPrecision = opts.subCharacterPrecision;
   }
 
   createRenderObject(): RenderScrollbar {
@@ -198,6 +208,7 @@ class _ScrollbarRender extends LeafRenderObjectWidget {
       this.showTrack,
       this.thumbColor,
       this.trackColor,
+      this.subCharacterPrecision,
     );
   }
 
@@ -210,6 +221,7 @@ class _ScrollbarRender extends LeafRenderObjectWidget {
     r.showTrack = this.showTrack;
     r.thumbColor = this.thumbColor;
     r.trackColor = this.trackColor;
+    r.subCharacterPrecision = this.subCharacterPrecision;
     r.markNeedsPaint();
   }
 }
@@ -235,6 +247,7 @@ export class RenderScrollbar extends RenderBox {
   showTrack: boolean;
   thumbColor?: Color;
   trackColor?: Color;
+  subCharacterPrecision: boolean;
 
   constructor(
     scrollInfo?: ScrollInfo,
@@ -244,6 +257,7 @@ export class RenderScrollbar extends RenderBox {
     showTrack: boolean = true,
     thumbColor?: Color,
     trackColor?: Color,
+    subCharacterPrecision: boolean = true,
   ) {
     super();
     this.scrollInfo = scrollInfo;
@@ -253,6 +267,7 @@ export class RenderScrollbar extends RenderBox {
     this.showTrack = showTrack;
     this.thumbColor = thumbColor;
     this.trackColor = trackColor;
+    this.subCharacterPrecision = subCharacterPrecision;
   }
 
   /**
@@ -314,6 +329,8 @@ export class RenderScrollbar extends RenderBox {
 
   /**
    * Paint the scrollbar: track + thumb.
+   * When subCharacterPrecision is enabled, uses Unicode block elements
+   * for 1/8th character precision rendering.
    */
   paint(context: PaintContext, offset: Offset): void {
     const ctx = context as any;
@@ -343,19 +360,88 @@ export class RenderScrollbar extends RenderBox {
       }
     }
 
-    // Compute and draw thumb
-    const metrics = this.computeThumbMetrics(height);
-    if (metrics) {
-      const { thumbTop, thumbHeight } = metrics;
-      for (let row = thumbTop; row < thumbTop + thumbHeight && row < height; row++) {
+    if (this.subCharacterPrecision) {
+      // Sub-character precision rendering using BLOCK_ELEMENTS
+      const metrics = this.computeThumbMetrics(height);
+      if (!metrics) return;
+
+      // We need the scroll ratio values to compute sub-char positions
+      if (!this.scrollInfo || height <= 0) return;
+
+      let totalContentHeight = this.scrollInfo.totalContentHeight;
+      let vpHeight = this.scrollInfo.viewportHeight;
+      const scrollOffset = this.scrollInfo.scrollOffset;
+
+      if (vpHeight <= 0) {
+        vpHeight = height;
+        if (totalContentHeight > 0) {
+          totalContentHeight = totalContentHeight - 1 + vpHeight;
+        }
+      }
+
+      if (totalContentHeight <= 0 || totalContentHeight <= vpHeight) return;
+
+      const scrollRatio = vpHeight / totalContentHeight;
+      const scrollPositionRatio = scrollOffset / (totalContentHeight - vpHeight);
+
+      const totalEighths = height * 8;
+      const thumbEighths = Math.max(8, Math.round(scrollRatio * totalEighths)); // minimum 1 char
+      const thumbTopEighths = Math.round(scrollPositionRatio * (totalEighths - thumbEighths));
+
+      for (let row = 0; row < height; row++) {
+        const rowTopEighths = row * 8;
+        const rowBottomEighths = rowTopEighths + 8;
+
+        // Calculate how many eighths of this row are covered by the thumb
+        const overlapStart = Math.max(rowTopEighths, thumbTopEighths);
+        const overlapEnd = Math.min(rowBottomEighths, thumbTopEighths + thumbEighths);
+        const coveredEighths = Math.max(0, overlapEnd - overlapStart);
+
+        if (coveredEighths <= 0) {
+          // Empty row - track character already drawn
+          continue;
+        }
+
+        let ch: string;
+        if (coveredEighths >= 8) {
+          // Fully covered
+          ch = BLOCK_ELEMENTS[8];
+        } else if (overlapStart === rowTopEighths) {
+          // Top-aligned partial: thumb starts at top of this row
+          // Use upper portion = coveredEighths from top
+          // Block elements grow from bottom, so for top-aligned we use full minus gap
+          ch = BLOCK_ELEMENTS[coveredEighths];
+        } else {
+          // Bottom-aligned partial: thumb ends partway through this row
+          // or starts partway through this row
+          ch = BLOCK_ELEMENTS[coveredEighths];
+        }
+
         for (let col = 0; col < width; col++) {
           ctx.drawChar(
             offset.col + col,
             offset.row + row,
-            this.thumbChar,
+            ch,
             this.thumbColor ? thumbStyle : undefined,
             1,
           );
+        }
+      }
+    } else {
+      // Standard whole-character rendering
+      const metrics = this.computeThumbMetrics(height);
+      if (metrics) {
+        const { thumbTop, thumbHeight } = metrics;
+        for (let row = thumbTop; row < thumbTop + thumbHeight && row < height; row++) {
+          for (let col = 0; col < width; col++) {
+            ctx.drawChar(
+              offset.col + col,
+              offset.row + row,
+              this.thumbChar,
+              this.thumbColor ? thumbStyle : undefined,
+              1,
+            );
+          }
         }
       }
     }
