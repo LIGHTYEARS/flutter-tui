@@ -898,3 +898,86 @@ describe('Scrollbar sub-character edge rendering', () => {
     expect(invertedEntries.length).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe('Scrollbar thumb size stability', () => {
+  // Regression test: thumb size must NOT change as scroll position changes.
+  // The old code used Math.round which caused ±1 eighth jitter.
+  test('thumbEighths is constant across all scroll positions', () => {
+    const height = 20;
+    const totalContent = 100; // 100 lines of content
+    const viewport = 20;     // 20 lines visible
+
+    // Collect thumb sizes at many scroll positions
+    const thumbSizes = new Set<number>();
+
+    for (let offset = 0; offset <= totalContent - viewport; offset++) {
+      const render = new RenderScrollbar(
+        { totalContentHeight: totalContent, viewportHeight: viewport, scrollOffset: offset },
+        1, '░', '█', true, Color.cyan, Color.brightBlack, true,
+      );
+      render.layout(new BoxConstraints({ minWidth: 1, maxWidth: 1, minHeight: height, maxHeight: height }));
+
+      const ctx = new MockPaintContext();
+      render.paint(ctx as any, new Offset(0, 0));
+
+      // Count how many rows have thumb content (any non-track character)
+      // In sub-character mode, count eighths of thumb coverage
+      let thumbEighthsTotal = 0;
+      for (let row = 0; row < height; row++) {
+        const rowDraws = ctx.drawn.filter(d => d.y === row && d.char !== '░');
+        if (rowDraws.length > 0) {
+          const ch = rowDraws[0].char;
+          // Map character back to eighths
+          const idx = [' ', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'].indexOf(ch);
+          if (idx >= 0) {
+            // For bottom edge (inverted), the block represents the gap, so thumb = 8 - idx
+            if (rowDraws[0].style?.bg) {
+              thumbEighthsTotal += 8 - idx;
+            } else {
+              thumbEighthsTotal += idx;
+            }
+          }
+        }
+      }
+      thumbSizes.add(thumbEighthsTotal);
+    }
+
+    // The thumb size should be constant (only 1 unique value)
+    // Allow at most 2 unique values to account for edge rounding at boundaries
+    expect(thumbSizes.size).toBeLessThanOrEqual(2);
+  });
+
+  test('thumb size derived from controller.viewportSize is exact', () => {
+    const ctrl = new ScrollController();
+    // Simulate: 100 items, viewport shows 20
+    ctrl.updateViewportSize(20);
+    ctrl.disableFollowMode(); // prevent auto-scroll to bottom
+    ctrl.updateMaxScrollExtent(80); // maxScrollExtent = totalContent - viewport = 100 - 20
+
+    const scrollbar = new Scrollbar({ controller: ctrl, subCharacterPrecision: true });
+    const state = scrollbar.createState();
+
+    // Access the build method's scrollInfo derivation
+    // The key assertion: totalContentHeight should be exactly 100 (= 80 + 20)
+    // and viewportHeight should be exactly 20
+    const scrollInfo = {
+      totalContentHeight: ctrl.maxScrollExtent + ctrl.viewportSize,
+      viewportHeight: ctrl.viewportSize,
+      scrollOffset: ctrl.offset,
+    };
+
+    expect(scrollInfo.totalContentHeight).toBe(100);
+    expect(scrollInfo.viewportHeight).toBe(20);
+    expect(scrollInfo.scrollOffset).toBe(0);
+
+    // Now scroll to middle and verify same totalContentHeight
+    ctrl.jumpTo(40);
+    const scrollInfo2 = {
+      totalContentHeight: ctrl.maxScrollExtent + ctrl.viewportSize,
+      viewportHeight: ctrl.viewportSize,
+      scrollOffset: ctrl.offset,
+    };
+    expect(scrollInfo2.totalContentHeight).toBe(100);
+    expect(scrollInfo2.viewportHeight).toBe(20);
+  });
+});

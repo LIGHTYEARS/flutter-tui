@@ -138,15 +138,15 @@ class ScrollbarState extends State<Scrollbar> {
       scrollInfo = this.widget.getScrollInfo();
     } else if (this.widget.controller) {
       const ctrl = this.widget.controller;
-      // Derive scroll info from controller state
-      // maxScrollExtent = totalContentHeight - viewportHeight
-      // We need viewportHeight; we'll pass 0 as a placeholder and let the
-      // render object use its own height as viewportHeight
+      // Derive exact scroll info from controller state.
+      // ScrollController tracks viewportSize (set by RenderScrollViewport during layout)
+      // and maxScrollExtent = totalContentHeight - viewportHeight.
+      const vpSize = ctrl.viewportSize;
       scrollInfo = {
-        totalContentHeight: ctrl.maxScrollExtent > 0
-          ? ctrl.maxScrollExtent + 1 // approximate; render object adjusts
+        totalContentHeight: vpSize > 0
+          ? ctrl.maxScrollExtent + vpSize
           : 0,
-        viewportHeight: 0, // will be overridden by render height
+        viewportHeight: vpSize,
         scrollOffset: ctrl.offset,
       };
     }
@@ -299,29 +299,25 @@ export class RenderScrollbar extends RenderBox {
   computeThumbMetrics(viewportHeight: number): { thumbTop: number; thumbHeight: number } | null {
     if (!this.scrollInfo || viewportHeight <= 0) return null;
 
-    let totalContentHeight = this.scrollInfo.totalContentHeight;
-    let vpHeight = this.scrollInfo.viewportHeight;
+    const totalContentHeight = this.scrollInfo.totalContentHeight;
+    const vpHeight = this.scrollInfo.viewportHeight > 0
+      ? this.scrollInfo.viewportHeight
+      : viewportHeight;
     const scrollOffset = this.scrollInfo.scrollOffset;
 
-    // If viewportHeight was not provided (0), use our render height
-    if (vpHeight <= 0) {
-      vpHeight = viewportHeight;
-      // Also adjust totalContentHeight if it was derived from maxScrollExtent
-      // maxScrollExtent = totalContentHeight - viewportHeight
-      // so totalContentHeight = maxScrollExtent + viewportHeight
-      if (totalContentHeight > 0) {
-        totalContentHeight = totalContentHeight - 1 + vpHeight; // undo the +1 approximation
-      }
-    }
+    // Recompute totalContentHeight when viewportHeight was not originally provided
+    const effectiveTotalContent = this.scrollInfo.viewportHeight > 0
+      ? totalContentHeight
+      : (totalContentHeight > 0 ? totalContentHeight - 1 + vpHeight : 0);
 
-    if (totalContentHeight <= 0 || totalContentHeight <= vpHeight) {
+    if (effectiveTotalContent <= 0 || effectiveTotalContent <= vpHeight) {
       // No scrollbar needed (content fits in viewport)
       return null;
     }
 
-    const thumbHeight = Math.max(1, Math.round((vpHeight / totalContentHeight) * viewportHeight));
+    const thumbHeight = Math.max(1, Math.round((vpHeight / effectiveTotalContent) * viewportHeight));
     const maxThumbTop = viewportHeight - thumbHeight;
-    const scrollFraction = scrollOffset / (totalContentHeight - vpHeight);
+    const scrollFraction = scrollOffset / (effectiveTotalContent - vpHeight);
     const thumbTop = Math.round(Math.max(0, Math.min(scrollFraction * maxThumbTop, maxThumbTop)));
 
     return { thumbTop, thumbHeight };
@@ -373,25 +369,29 @@ export class RenderScrollbar extends RenderBox {
 
       if (!this.scrollInfo || height <= 0) return;
 
-      let totalContentHeight = this.scrollInfo.totalContentHeight;
-      let vpHeight = this.scrollInfo.viewportHeight;
+      const totalContentHeight = this.scrollInfo.totalContentHeight;
+      const vpHeight = this.scrollInfo.viewportHeight > 0
+        ? this.scrollInfo.viewportHeight
+        : height;
+
+      // Recompute totalContentHeight when viewportHeight was not originally provided
+      const effectiveTotalContent = this.scrollInfo.viewportHeight > 0
+        ? totalContentHeight
+        : (totalContentHeight > 0 ? totalContentHeight - 1 + vpHeight : 0);
       const scrollOffset = this.scrollInfo.scrollOffset;
 
-      if (vpHeight <= 0) {
-        vpHeight = height;
-        if (totalContentHeight > 0) {
-          totalContentHeight = totalContentHeight - 1 + vpHeight;
-        }
-      }
+      if (effectiveTotalContent <= 0 || effectiveTotalContent <= vpHeight) return;
 
-      if (totalContentHeight <= 0 || totalContentHeight <= vpHeight) return;
-
-      const scrollRatio = vpHeight / totalContentHeight;
-      const scrollPositionRatio = scrollOffset / (totalContentHeight - vpHeight);
+      const scrollRatio = vpHeight / effectiveTotalContent;
+      const maxScrollOffset = effectiveTotalContent - vpHeight;
+      const scrollPositionRatio = maxScrollOffset > 0 ? scrollOffset / maxScrollOffset : 0;
 
       const totalEighths = height * 8;
-      const thumbEighths = Math.max(8, Math.round(scrollRatio * totalEighths)); // minimum 1 char
-      const thumbTopEighths = Math.round(scrollPositionRatio * (totalEighths - thumbEighths));
+      // Use Math.floor for thumb size to avoid ±1 jitter across scroll positions
+      const thumbEighths = Math.max(8, Math.floor(scrollRatio * totalEighths));
+      const maxThumbTopEighths = totalEighths - thumbEighths;
+      // Use Math.floor for position to keep it monotonically stable
+      const thumbTopEighths = Math.floor(Math.max(0, Math.min(scrollPositionRatio * maxThumbTopEighths, maxThumbTopEighths)));
       const thumbBottomEighths = thumbTopEighths + thumbEighths;
 
       for (let row = 0; row < height; row++) {
