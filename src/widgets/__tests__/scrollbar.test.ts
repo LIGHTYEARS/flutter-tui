@@ -584,9 +584,9 @@ describe('Scrollbar subCharacterPrecision', () => {
       d.char >= '\u2581' && d.char <= '\u2588'
     );
     expect(blockElements.length).toBeGreaterThan(0);
-    // All block elements should have the thumb color
+    // All block elements should have thumb color as fg
     for (const el of blockElements) {
-      expect(el.style).toEqual({ fg: Color.green });
+      expect(el.style?.fg).toBe(Color.green);
     }
   });
 
@@ -679,8 +679,8 @@ describe('Scrollbar sub-character edge rendering', () => {
     expect(row0.length).toBe(1);
     // The block element for covered=4 is BLOCK_ELEMENTS[4] = '\u2584' (lower half)
     expect(row0[0]!.char).toBe('\u2584');
-    // Top edge: style should have fg = thumbColor
-    expect(row0[0]!.style).toEqual({ fg: Color.green });
+    // Top edge: style should have fg = thumbColor, bg = trackColor
+    expect(row0[0]!.style).toEqual({ fg: Color.green, bg: Color.brightBlack });
   });
 
   test('bottom-edge rendering: thumb ending mid-row uses inverted colors (track fg, thumb bg)', () => {
@@ -756,7 +756,7 @@ describe('Scrollbar sub-character edge rendering', () => {
     for (const row of [0, 1, 2]) {
       const rowDrawn = ctx.drawn.filter((d) => d.y === row && d.char === '\u2588');
       expect(rowDrawn.length).toBe(1);
-      expect(rowDrawn[0]!.style).toEqual({ fg: Color.green });
+      expect(rowDrawn[0]!.style).toEqual({ fg: Color.green, bg: Color.green });
     }
   });
 
@@ -812,8 +812,8 @@ describe('Scrollbar sub-character edge rendering', () => {
     // There should be at least 2 partial blocks (top edge and bottom edge)
     expect(partialBlocks.length).toBeGreaterThanOrEqual(2);
 
-    // Top edge should have fg = thumbColor (thumb fg)
-    const topEdge = partialBlocks.find((d) => d.style && d.style.fg === Color.green && !d.style.bg);
+    // Top edge should have fg = thumbColor, bg = trackColor
+    const topEdge = partialBlocks.find((d) => d.style && d.style.fg === Color.green && d.style.bg === Color.brightBlack);
     expect(topEdge).toBeDefined();
 
     // Bottom edge should have fg = trackColor, bg = thumbColor (inverted)
@@ -897,6 +897,76 @@ describe('Scrollbar sub-character edge rendering', () => {
     );
     expect(invertedEntries.length).toBeGreaterThanOrEqual(1);
   });
+
+  test('top edge sets bg=trackColor so uncovered portion matches track visually', () => {
+    // Regression: top edge previously only set fg=thumbColor with no bg,
+    // causing the uncovered portion of the cell to show terminal default background
+    // instead of the track color. This created a visible dark gap.
+    const render = new RenderScrollbar();
+    render.subCharacterPrecision = true;
+    render.showTrack = false;
+    render.thumbColor = Color.cyan;
+    render.trackColor = Color.brightBlack;
+    render.scrollInfo = {
+      totalContentHeight: 100,
+      viewportHeight: 10,
+      scrollOffset: 5,
+    };
+
+    const constraints = new BoxConstraints({
+      minWidth: 0,
+      maxWidth: 1,
+      minHeight: 0,
+      maxHeight: 10,
+    });
+    render.layout(constraints);
+
+    const ctx = new MockPaintContext();
+    render.paint(ctx as any, new Offset(0, 0));
+
+    // Find the top edge row — has fg=thumbColor AND bg=trackColor
+    const topEdge = ctx.drawn.find((d) =>
+      d.char >= '\u2581' && d.char <= '\u2587' &&
+      d.style?.fg === Color.cyan &&
+      d.style?.bg === Color.brightBlack
+    );
+    expect(topEdge).toBeDefined();
+    // The bg must be the track color
+    expect(topEdge!.style.bg).toBe(Color.brightBlack);
+  });
+
+  test('fully covered block sets both fg and bg to thumbColor for seamless fill', () => {
+    const render = new RenderScrollbar();
+    render.subCharacterPrecision = true;
+    render.showTrack = false;
+    render.thumbColor = Color.cyan;
+    render.trackColor = Color.brightBlack;
+    render.scrollInfo = {
+      totalContentHeight: 30,
+      viewportHeight: 10,
+      scrollOffset: 0,
+    };
+
+    const constraints = new BoxConstraints({
+      minWidth: 0,
+      maxWidth: 1,
+      minHeight: 0,
+      maxHeight: 10,
+    });
+    render.layout(constraints);
+
+    const ctx = new MockPaintContext();
+    render.paint(ctx as any, new Offset(0, 0));
+
+    // Find full block rows
+    const fullBlocks = ctx.drawn.filter((d) => d.char === '\u2588');
+    expect(fullBlocks.length).toBeGreaterThan(0);
+    for (const fb of fullBlocks) {
+      // Both fg and bg should be thumbColor for seamless fill
+      expect(fb.style?.fg).toBe(Color.cyan);
+      expect(fb.style?.bg).toBe(Color.cyan);
+    }
+  });
 });
 
 describe('Scrollbar thumb size stability', () => {
@@ -927,13 +997,18 @@ describe('Scrollbar thumb size stability', () => {
         const rowDraws = ctx.drawn.filter(d => d.y === row && d.char !== '░');
         if (rowDraws.length > 0) {
           const ch = rowDraws[0].char;
+          const style = rowDraws[0].style;
           // Map character back to eighths
           const idx = [' ', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'].indexOf(ch);
           if (idx >= 0) {
-            // For bottom edge (inverted), the block represents the gap, so thumb = 8 - idx
-            if (rowDraws[0].style?.bg) {
+            if (idx === 8) {
+              // Full block = fully covered
+              thumbEighthsTotal += 8;
+            } else if (style?.bg === Color.cyan) {
+              // Bottom edge (inverted): bg = thumbColor, block represents the gap
               thumbEighthsTotal += 8 - idx;
             } else {
+              // Top edge: block represents the thumb coverage
               thumbEighthsTotal += idx;
             }
           }

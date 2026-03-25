@@ -410,47 +410,47 @@ export class RenderScrollbar extends RenderBox {
 
         for (let col = 0; col < width; col++) {
           if (coveredEighths >= 8) {
-            // Fully covered by thumb
+            // Fully covered by thumb — full block in thumb color
+            const style: any = {};
+            if (this.thumbColor) { style.fg = this.thumbColor; style.bg = this.thumbColor; }
             ctx.drawChar(
               offset.col + col,
               offset.row + row,
               BLOCK_ELEMENTS[8], // █
-              this.thumbColor ? thumbStyle : undefined,
+              (this.thumbColor) ? style : undefined,
               1,
             );
           } else if (overlapStart > rowTopEighths) {
             // Top edge of thumb: thumb starts mid-row, covers bottom portion.
-            // Lower block element naturally fills from bottom — perfect match.
-            // Draw lower N/8 in thumb color.
+            // Lower block element fills from bottom in fg color — matches thumb.
+            // bg must be set to track color so the UNCOVERED top portion of
+            // the cell matches the track appearance instead of showing terminal default.
+            const style: any = {};
+            if (this.thumbColor) style.fg = this.thumbColor;
+            if (this.trackColor) style.bg = this.trackColor;
+            if (!this.thumbColor && !this.trackColor) style.inverse = true;
             ctx.drawChar(
               offset.col + col,
               offset.row + row,
               BLOCK_ELEMENTS[coveredEighths],
-              this.thumbColor ? thumbStyle : undefined,
+              style,
               1,
             );
           } else {
             // Bottom edge of thumb: thumb covers top portion, stops mid-row.
-            // Lower block elements can't represent top-fill directly.
-            // Trick: draw the UNCOVERED bottom gap as a lower block in track color,
-            // with thumb color as background for the covered top portion.
+            // Lower block elements only fill from bottom, so we invert the approach:
+            // draw the UNCOVERED bottom gap as a lower block in track fg color,
+            // with thumb color as bg for the covered top portion.
             const gapEighths = 8 - coveredEighths;
-            const invertedStyle: any = {};
-            if (this.trackColor) invertedStyle.fg = this.trackColor;
-            if (this.thumbColor) invertedStyle.bg = this.thumbColor;
-            // When no explicit colors, use inverse attribute to swap fg/bg
-            if (!this.trackColor && !this.thumbColor) {
-              invertedStyle.inverse = true;
-            } else if (!this.trackColor) {
-              invertedStyle.bg = this.thumbColor;
-            } else if (!this.thumbColor) {
-              invertedStyle.fg = this.trackColor;
-            }
+            const style: any = {};
+            if (this.trackColor) style.fg = this.trackColor;
+            if (this.thumbColor) style.bg = this.thumbColor;
+            if (!this.trackColor && !this.thumbColor) style.inverse = true;
             ctx.drawChar(
               offset.col + col,
               offset.row + row,
               BLOCK_ELEMENTS[gapEighths],
-              invertedStyle,
+              style,
               1,
             );
           }
