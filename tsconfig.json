@@ -1,6 +1,6 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/flutter-tui" }
+    { "path": "packages/flitter-core" }
   ]
 }

@@ -8,7 +8,7 @@ importers:
 
   .: {}
 
-  packages/flutter-tui:
+  packages/flitter-core:
     devDependencies:
       '@types/bun':
         specifier: latest

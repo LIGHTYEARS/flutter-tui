@@ -1,5 +1,5 @@
 {
-  "name": "muse-tui",
+  "name": "flitter",
   "private": true,
   "scripts": {
     "test": "pnpm -r run test",
