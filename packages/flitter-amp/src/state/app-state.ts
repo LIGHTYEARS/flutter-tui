@@ -22,6 +22,8 @@ export class AppState implements ClientCallbacks {
   currentMode: string | null = null;
   isConnected = false;
   error: string | null = null;
+  cwd: string = process.cwd();
+  gitBranch: string | null = null;
 
   private listeners: Set<StateListener> = new Set();
   private pendingPermission: {

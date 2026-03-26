@@ -29,7 +29,7 @@ export class PlanView extends StatelessWidget {
         text: new TextSpan({
           text: '  Plan',
           style: new TextStyle({
-            foreground: Color.blue,
+            foreground: Color.cyan,
             bold: true,
           }),
         }),

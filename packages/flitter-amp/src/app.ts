@@ -1,15 +1,15 @@
 // Root App widget — the top-level widget tree matching Amp's layout
 //
-// Layout (Amp-faithful):
+// Layout (Amp-faithful, Phase 7):
 // Column (mainAxisSize: max)
-//   ├── HeaderBar (thread info, mode, cost)
 //   ├── Expanded
 //   │   └── Row (crossAxisAlignment: stretch)
 //   │       ├── Expanded
 //   │       │   └── SingleChildScrollView (position: bottom, followMode)
 //   │       │       └── ChatView (conversation items)
 //   │       └── Scrollbar (1-col wide)
-//   └── InputArea (bordered Container + TextField)
+//   ├── InputArea (full-width, top separator, mode label)
+//   └── StatusBar (? for shortcuts + cwd + git branch)
 //
 // Overlays (Stack-based, priority order):
 //   1. PermissionDialog — agent permission request (modal)
@@ -27,6 +27,8 @@ import { Expanded } from 'flitter-core/src/widgets/flexible';
 import { SingleChildScrollView } from 'flitter-core/src/widgets/scroll-view';
 import { ScrollController } from 'flitter-core/src/widgets/scroll-controller';
 import { Scrollbar } from 'flitter-core/src/widgets/scrollbar';
+import { Padding } from 'flitter-core/src/widgets/padding';
+import { EdgeInsets } from 'flitter-core/src/layout/edge-insets';
 import { Color } from 'flitter-core/src/core/color';
 import { FocusScope } from 'flitter-core/src/widgets/focus-scope';
 import { Stack, Positioned } from 'flitter-core/src/widgets/stack';
@@ -36,7 +38,7 @@ import { AppState } from './state/app-state';
 import { PromptHistory } from './state/history';
 import { ChatView } from './widgets/chat-view';
 import { InputArea } from './widgets/input-area';
-import { HeaderBar } from './widgets/header-bar';
+import { StatusBar } from './widgets/status-bar';
 import { PermissionDialog } from './widgets/permission-dialog';
 import { CommandPalette } from './widgets/command-palette';
 import { FilePicker } from './widgets/file-picker';
@@ -106,9 +108,9 @@ class AppStateWidget extends State<App> {
     const appState = this.widget.appState;
     const items = appState.conversation.items;
 
-    // Amp color scheme (dark theme defaults)
-    const scrollThumbColor = Color.white;
-    const scrollTrackColor = Color.black;
+    // Amp ref: scrollbarThumb = foreground (gH.default()), scrollbarTrack = index(8)
+    const scrollThumbColor = Color.defaultColor;
+    const scrollTrackColor = Color.ansi256(8);
 
     const mainContent = new FocusScope({
       autofocus: true,
@@ -178,15 +180,6 @@ class AppStateWidget extends State<App> {
       child: new Column({
         mainAxisSize: 'max',
         children: [
-          // Header bar
-          new HeaderBar({
-            agentName: appState.agentName ?? 'connecting...',
-            sessionId: appState.sessionId,
-            mode: appState.currentMode,
-            usage: appState.usage,
-            isProcessing: appState.isProcessing,
-          }),
-
           // Main content: scrollable chat + scrollbar (Amp: Row with Expanded + Scrollbar)
           new Expanded({
             child: new Row({
@@ -196,7 +189,14 @@ class AppStateWidget extends State<App> {
                   child: new SingleChildScrollView({
                     controller: this.scrollController,
                     position: 'bottom',
-                    child: new ChatView({ items, error: appState.error }),
+                    // Amp ref: a$({padding: H$.only({left: 2, right: 2-3, bottom: 1})})
+                    child: new Padding({
+                      padding: EdgeInsets.only({ left: 2, right: 2, bottom: 1 }),
+                      child: new ChatView({
+                        items,
+                        error: appState.error,
+                      }),
+                    }),
                   }),
                 }),
                 new Scrollbar({
@@ -208,12 +208,20 @@ class AppStateWidget extends State<App> {
             }),
           }),
 
-          // Input area with rounded border (Amp style)
+          // Input area — full-width with top separator and mode label
           new InputArea({
             onSubmit: (text: string) => {
               this.promptHistory.push(text);
               this.widget.onSubmit(text);
             },
+            isProcessing: appState.isProcessing,
+            mode: appState.currentMode,
+          }),
+
+          // Bottom status bar (Amp: cwd + git branch)
+          new StatusBar({
+            cwd: appState.cwd,
+            gitBranch: appState.gitBranch,
             isProcessing: appState.isProcessing,
           }),
         ],

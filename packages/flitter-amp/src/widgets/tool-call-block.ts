@@ -1,5 +1,7 @@
-// ToolCallBlock — collapsible tool call display matching Amp's style
-// Amp ref: ▶/▼ chevron + kind + title + status icon, expandable body
+// ToolCallBlock — tool call display matching Amp's xD/wQ widgets
+// Amp ref: wQ function — [statusIcon] [ToolName bold] [detail dim]
+// Status: ✓ done (green), ✗ error (red), ⋯ in-progress (blue), ⋯ queued (yellow)
+// Expand/collapse: ▶/▼ toggle (lT widget, mutedForeground)
 
 import { StatelessWidget, Widget } from 'flitter-core/src/framework/widget';
 import { Column } from 'flitter-core/src/widgets/flex';
@@ -27,50 +29,68 @@ export class ToolCallBlock extends StatelessWidget {
   build(): Widget {
     const { item } = this;
 
+    // Amp ref: rR function — status icons
+    // done: ✓ (U+2713), error/cancelled: ✗ (U+2715), in-progress/queued: ⋯ (U+22EF)
     const statusIcon =
-      item.status === 'completed' ? '✓' :
-      item.status === 'failed' ? '✗' :
-      item.status === 'in_progress' ? '⏳' : '◌';
+      item.status === 'completed' ? '\u2713' :
+      item.status === 'failed' ? '\u2715' :
+      '\u22EF';
 
+    // Amp ref: j0 function — status colors
+    // done: app.toolSuccess (green), error: app.toolError (red),
+    // in_progress: app.toolRunning (blue), queued/pending: app.waiting (yellow)
     const statusColor =
       item.status === 'completed' ? Color.green :
       item.status === 'failed' ? Color.red :
+      item.status === 'in_progress' ? Color.blue :
       Color.yellow;
 
-    const chevron = item.collapsed ? '▶' : '▼';
+    // Amp ref: wQ — header format: [statusIcon] [ToolName bold] [detail dim]
+    const headerSpans: TextSpan[] = [
+      new TextSpan({
+        text: `${statusIcon} `,
+        style: new TextStyle({ foreground: statusColor }),
+      }),
+      new TextSpan({
+        text: item.kind,
+        style: new TextStyle({ foreground: Color.defaultColor, bold: true }),
+      }),
+    ];
+
+    // Detail text (path/command) — Amp ref: FkL function extracts from tool input
+    if (item.title) {
+      headerSpans.push(new TextSpan({
+        text: ` ${item.title}`,
+        style: new TextStyle({ foreground: Color.defaultColor, dim: true }),
+      }));
+    }
 
     const children: Widget[] = [
-      // Header line: ▶ Kind  title  ✓
       new Text({
-        text: new TextSpan({
-          text: `  ${chevron} ${item.kind}  ${item.title}  ${statusIcon}`,
-          style: new TextStyle({ foreground: statusColor }),
-        }),
+        text: new TextSpan({ children: headerSpans }),
       }),
     ];
 
     // If expanded, show details
     if (!item.collapsed) {
-      // Show diff if the result contains one
       const diff = this.extractDiff();
       if (diff) {
         children.push(
           new Padding({
-            padding: EdgeInsets.only({ left: 4, right: 2 }),
+            padding: EdgeInsets.only({ left: 2, right: 2 }),
             child: new DiffView({ diff }),
           }),
         );
       } else if (item.result) {
-        // Show raw output
         const output = this.extractOutput();
         if (output) {
           children.push(
             new Padding({
-              padding: EdgeInsets.only({ left: 4, right: 2 }),
+              padding: EdgeInsets.only({ left: 2, right: 2 }),
               child: new Text({
                 text: new TextSpan({
                   text: output,
-                  style: new TextStyle({ foreground: Color.brightBlack }),
+                  style: new TextStyle({ foreground: Color.defaultColor, dim: true }),
                 }),
               }),
             }),
@@ -86,24 +106,17 @@ export class ToolCallBlock extends StatelessWidget {
     });
   }
 
-  /**
-   * Try to extract a unified diff from the tool call result.
-   * Edit/Write tool calls often contain diffs in their output.
-   */
   private extractDiff(): string | null {
     if (!this.item.result) return null;
 
-    // Check rawOutput for diff content
     const raw = this.item.result.rawOutput;
     if (raw) {
       const rawStr = typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2);
-      // Simple heuristic: if it contains unified diff markers
       if (rawStr.includes('@@') && (rawStr.includes('---') || rawStr.includes('+++'))) {
         return rawStr;
       }
     }
 
-    // Check content array
     if (this.item.result.content) {
       for (const c of this.item.result.content) {
         const text = c.content?.text;
@@ -116,9 +129,6 @@ export class ToolCallBlock extends StatelessWidget {
     return null;
   }
 
-  /**
-   * Extract displayable output from the tool call result.
-   */
   private extractOutput(): string {
     if (!this.item.result) return '';
 

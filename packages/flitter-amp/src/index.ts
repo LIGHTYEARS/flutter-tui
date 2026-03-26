@@ -19,6 +19,21 @@ async function main(): Promise<void> {
 
   // Create global app state
   const appState = new AppState();
+  appState.cwd = config.cwd;
+
+  // Detect git branch in the working directory
+  try {
+    const proc = Bun.spawnSync(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: config.cwd,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    if (proc.exitCode === 0) {
+      appState.gitBranch = proc.stdout.toString().trim() || null;
+    }
+  } catch {
+    // Not a git repo or git not installed — leave as null
+  }
 
   // Connect to the ACP agent
   let handle: ConnectionHandle;

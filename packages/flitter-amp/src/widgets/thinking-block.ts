@@ -1,5 +1,9 @@
 // ThinkingBlock — collapsible thinking/reasoning display
-// Amp ref: Collapsible "Thinking..." block with ▶/▼ toggle
+// Amp ref: zk widget
+// Streaming: accent (magenta) with braille spinner ●
+// Done: success (green) with ✓
+// Cancelled: warning (yellow) with "(interrupted)"
+// Content: dim, italic when expanded
 
 import { StatelessWidget, Widget } from 'flitter-core/src/framework/widget';
 import { Column } from 'flitter-core/src/widgets/flex';
@@ -25,38 +29,74 @@ export class ThinkingBlock extends StatelessWidget {
 
   build(): Widget {
     const { item } = this;
-    const chevron = item.collapsed ? '▶' : '▼';
-    const indicator = item.isStreaming ? ' ●' : '';
-    const label = `  ${chevron} Thinking${indicator}`;
 
-    const children: Widget[] = [
-      new Text({
-        text: new TextSpan({
-          text: label,
-          style: new TextStyle({
-            foreground: Color.brightBlack,
-            italic: true,
-          }),
-        }),
+    // Amp ref: zk widget — state-dependent icon and color
+    let icon: string;
+    let color: Color;
+    let suffix = '';
+
+    if (item.isStreaming) {
+      // Streaming: accent (magenta) with ● indicator
+      icon = '● ';
+      color = Color.magenta;
+    } else if (item.text.length > 0) {
+      // Done: success (green) with ✓
+      icon = '\u2713 ';
+      color = Color.green;
+    } else {
+      // Cancelled/empty: warning (yellow)
+      icon = '';
+      color = Color.yellow;
+      suffix = ' (interrupted)';
+    }
+
+    // Amp ref: expand/collapse uses ▶/▼ (lT widget, mutedForeground)
+    const chevron = item.collapsed ? '\u25B6' : '\u25BC';
+
+    const labelSpans: TextSpan[] = [
+      new TextSpan({
+        text: `${chevron} `,
+        style: new TextStyle({ foreground: Color.brightBlack }),
+      }),
+      new TextSpan({
+        text: icon,
+        style: new TextStyle({ foreground: color }),
+      }),
+      new TextSpan({
+        text: 'Thinking',
+        style: new TextStyle({ foreground: color, dim: true }),
       }),
     ];
 
-    // Show thinking content when expanded
+    if (suffix) {
+      labelSpans.push(new TextSpan({
+        text: suffix,
+        style: new TextStyle({ foreground: Color.yellow, italic: true }),
+      }));
+    }
+
+    const children: Widget[] = [
+      new Text({
+        text: new TextSpan({ children: labelSpans }),
+      }),
+    ];
+
+    // Amp ref: expanded content is dim, italic
     if (!item.collapsed && item.text.length > 0) {
-      // Truncate long thinking to first 500 chars
       const displayText = item.text.length > 500
         ? item.text.slice(0, 500) + '...'
         : item.text;
 
       children.push(
         new Padding({
-          padding: EdgeInsets.only({ left: 4, right: 2 }),
+          padding: EdgeInsets.only({ left: 2, right: 2 }),
           child: new Text({
             text: new TextSpan({
               text: displayText,
               style: new TextStyle({
-                foreground: Color.brightBlack,
+                foreground: Color.defaultColor,
                 dim: true,
+                italic: true,
               }),
             }),
           }),
