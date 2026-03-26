@@ -30,6 +30,7 @@ import { Stack, Positioned } from 'flitter-core/src/widgets/stack';
 import type { KeyEvent, KeyEventResult } from 'flitter-core/src/input/events';
 
 import { AppState } from './state/app-state';
+import { PromptHistory } from './state/history';
 import { ChatView } from './widgets/chat-view';
 import { InputArea } from './widgets/input-area';
 import { HeaderBar } from './widgets/header-bar';
@@ -65,6 +66,7 @@ class AppStateWidget extends State<App> {
   private scrollController = new ScrollController();
   private stateListener: (() => void) | null = null;
   private showCommandPalette = false;
+  private promptHistory = new PromptHistory();
 
   override initState(): void {
     super.initState();
@@ -144,6 +146,23 @@ class AppStateWidget extends State<App> {
           return 'handled';
         }
 
+        // Ctrl+G — open prompt in $EDITOR
+        // TODO: Full TUI suspend requires WidgetsBinding.suspend()/resume()
+        // When available: suspend TUI, spawn editor, resume with edited text
+        if (event.ctrlKey && event.key === 'g') {
+          return 'handled';
+        }
+
+        // Ctrl+R — navigate prompt history (backward)
+        if (event.ctrlKey && event.key === 'r') {
+          const prev = this.promptHistory.previous();
+          if (prev !== null) {
+            // TODO: inject text into InputArea when TextEditingController is exposed
+            this.setState(() => {});
+          }
+          return 'handled';
+        }
+
         return 'ignored';
       },
       child: new Column({
@@ -181,7 +200,10 @@ class AppStateWidget extends State<App> {
 
           // Input area with rounded border (Amp style)
           new InputArea({
-            onSubmit: this.widget.onSubmit,
+            onSubmit: (text: string) => {
+              this.promptHistory.push(text);
+              this.widget.onSubmit(text);
+            },
             isProcessing: appState.isProcessing,
           }),
         ],
