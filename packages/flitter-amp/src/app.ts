@@ -31,6 +31,7 @@ import { Padding } from 'flitter-core/src/widgets/padding';
 import { EdgeInsets } from 'flitter-core/src/layout/edge-insets';
 import { Color } from 'flitter-core/src/core/color';
 import { FocusScope } from 'flitter-core/src/widgets/focus-scope';
+import { Center } from 'flitter-core/src/widgets/center';
 import { Stack, Positioned } from 'flitter-core/src/widgets/stack';
 import type { KeyEvent, KeyEventResult } from 'flitter-core/src/input/events';
 
@@ -182,31 +183,44 @@ class AppStateWidget extends State<App> {
         crossAxisAlignment: 'stretch',
         children: [
           // Main content: scrollable chat + scrollbar (Amp: Row with Expanded + Scrollbar)
+          // BUG-1 FIX: When no items, bypass ScrollView and use Center so
+          // the welcome screen can actually center vertically (ScrollView
+          // gives unbounded height → Column mainAxisAlignment:'center' has no effect).
           new Expanded({
-            child: new Row({
-              crossAxisAlignment: 'stretch',
-              children: [
-                new Expanded({
-                  child: new SingleChildScrollView({
-                    controller: this.scrollController,
-                    position: 'bottom',
-                    // Amp ref: a$({padding: H$.only({left: 2, right: 2-3, bottom: 1})})
-                    child: new Padding({
-                      padding: EdgeInsets.only({ left: 2, right: 2, bottom: 1 }),
-                      child: new ChatView({
-                        items,
-                        error: appState.error,
-                      }),
+            child: items.length === 0
+              ? new Center({
+                  child: new Padding({
+                    padding: EdgeInsets.only({ left: 2, right: 2, bottom: 1 }),
+                    child: new ChatView({
+                      items,
+                      error: appState.error,
                     }),
                   }),
+                })
+              : new Row({
+                  crossAxisAlignment: 'stretch',
+                  children: [
+                    new Expanded({
+                      child: new SingleChildScrollView({
+                        controller: this.scrollController,
+                        position: 'bottom',
+                        // Amp ref: a$({padding: H$.only({left: 2, right: 2-3, bottom: 1})})
+                        child: new Padding({
+                          padding: EdgeInsets.only({ left: 2, right: 2, bottom: 1 }),
+                          child: new ChatView({
+                            items,
+                            error: appState.error,
+                          }),
+                        }),
+                      }),
+                    }),
+                    new Scrollbar({
+                      controller: this.scrollController,
+                      thumbColor: scrollThumbColor,
+                      trackColor: scrollTrackColor,
+                    }),
+                  ],
                 }),
-                new Scrollbar({
-                  controller: this.scrollController,
-                  thumbColor: scrollThumbColor,
-                  trackColor: scrollTrackColor,
-                }),
-              ],
-            }),
           }),
 
           // Input area — full-width with top separator and mode label

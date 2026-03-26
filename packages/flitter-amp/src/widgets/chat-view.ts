@@ -5,7 +5,6 @@
 
 import { StatelessWidget, Widget } from 'flitter-core/src/framework/widget';
 import { Column, Row } from 'flitter-core/src/widgets/flex';
-import { Expanded } from 'flitter-core/src/widgets/flexible';
 import { Text } from 'flitter-core/src/widgets/text';
 import { TextStyle } from 'flitter-core/src/core/text-style';
 import { TextSpan } from 'flitter-core/src/core/text-span';
@@ -121,7 +120,7 @@ export class ChatView extends StatelessWidget {
 
     return new Column({
       mainAxisSize: 'min',
-      crossAxisAlignment: 'start',
+      crossAxisAlignment: 'stretch',
       children,
     });
   }

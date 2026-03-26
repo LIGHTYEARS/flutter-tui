@@ -59,3 +59,36 @@ export type { ElementNodeJson, RenderObjectJson, FocusNodeJson, KeystrokeEntry }
 
 // Phase 22: Minor Fidelity Fixes
 export { estimateIntrinsicWidth } from './layout/layout-helpers';
+
+// Phase 9: Core TUI Capability Strengthening
+// Painting utilities
+export {
+  BOX_DRAWING,
+  drawHorizontalDivider,
+  drawVerticalDivider,
+  drawGridBorder,
+} from './painting/border-painter';
+export type { BoxDrawingChars, BoxDrawingStyle, BorderPaintStyle } from './painting/border-painter';
+export {
+  paintTreeConnectors,
+  treeConnectorWidth,
+  TREE_CHARS_SOLID,
+  TREE_CHARS_ROUNDED,
+} from './painting/tree-connector';
+export type { TreeChars, TreeConnectorOpts } from './painting/tree-connector';
+
+// Grid border widget (multi-pane bordered container)
+export { GridBorder } from './widgets/grid-border';
+export { RenderGridBorder } from './layout/render-grid-border';
+export type { GridBorderConfig } from './layout/render-grid-border';
+
+// N-column data table
+export { DataTable, TableColumnWidth } from './widgets/table';
+export { RenderTable } from './layout/render-table';
+export type { TableConfig, TableCellParentData } from './layout/render-table';
+
+// BrailleSpinner utility
+export { BrailleSpinner } from './utilities/braille-spinner';
+
+// ForceDim inherited widget
+export { ForceDim } from './widgets/force-dim';
