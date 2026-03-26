@@ -3,6 +3,8 @@
 // Left: contextual status message (spinner + text)
 // Right: cwd + git branch (dim, foreground)
 // Amp: overlays position cwd+branch at bottom-right
+//
+// @deprecated Use BottomGrid instead, which implements Amp's 4-corner overlay system.
 
 import { StatelessWidget, Widget } from 'flitter-core/src/framework/widget';
 import { Row } from 'flitter-core/src/widgets/flex';
@@ -21,6 +23,7 @@ interface StatusBarProps {
   statusMessage?: string | null;
 }
 
+/** @deprecated Use {@link BottomGrid} instead, which implements Amp's 4-corner overlay system. */
 export class StatusBar extends StatelessWidget {
   private readonly cwd: string;
   private readonly gitBranch: string | null;

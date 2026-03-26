@@ -17,6 +17,7 @@ import { BoxConstraints } from 'flitter-core/src/core/box-constraints';
 import { Size, Offset } from 'flitter-core/src/core/types';
 import type { PaintContext } from 'flitter-core/src/scheduler/paint-context';
 import { RenderFlex } from 'flitter-core/src/layout/render-flex';
+import { Column, Row } from 'flitter-core/src/widgets/flex';
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -209,9 +210,14 @@ describe('Layout Guardrails: Constraint Chain', () => {
 
 describe('Layout Guardrails: Widget Properties', () => {
   describe('Default flex properties', () => {
-    it('Column default crossAxisAlignment is center (NOT stretch)', () => {
+    it('RenderFlex default crossAxisAlignment is start (low-level)', () => {
       const flex = new RenderFlex({ direction: 'vertical' });
-      expect((flex as any)._crossAxisAlignment).toBe('center');
+      expect((flex as any)._crossAxisAlignment).toBe('start');
+    });
+
+    it('Column widget default crossAxisAlignment is center (widget-level)', () => {
+      const col = new Column();
+      expect(col.crossAxisAlignment).toBe('center');
     });
 
     it('Column default mainAxisSize is max', () => {
@@ -219,9 +225,14 @@ describe('Layout Guardrails: Widget Properties', () => {
       expect((flex as any)._mainAxisSize).toBe('max');
     });
 
-    it('Row default crossAxisAlignment is center', () => {
+    it('Row widget default crossAxisAlignment is center (widget-level)', () => {
+      const row = new Row();
+      expect(row.crossAxisAlignment).toBe('center');
+    });
+
+    it('RenderFlex default crossAxisAlignment is start (low-level, Row)', () => {
       const flex = new RenderFlex({ direction: 'horizontal' });
-      expect((flex as any)._crossAxisAlignment).toBe('center');
+      expect((flex as any)._crossAxisAlignment).toBe('start');
     });
   });
 
@@ -315,11 +326,11 @@ describe('Layout Guardrails: Regression', () => {
   });
 
   describe('Root Column must use stretch to fill terminal width', () => {
-    it('Without stretch, children center in terminal', () => {
+    it('Without stretch, Column cross-axis size is max child width (not maxWidth)', () => {
       const flex = new RenderFlex({
         direction: 'vertical',
         mainAxisSize: 'max',
-        crossAxisAlignment: 'center', // BAD default
+        crossAxisAlignment: 'center',
       });
 
       const child = new FixedSizeBox(50, 5);
@@ -330,10 +341,10 @@ describe('Layout Guardrails: Regression', () => {
         minHeight: 0, maxHeight: 40,
       }));
 
-      // Column fills terminal
-      expect(flex.size.width).toBe(120);
+      // Column cross size = max(childWidth, minWidth) = max(50, 0) = 50
+      expect(flex.size.width).toBe(50);
       expect(flex.size.height).toBe(40);
-      // But child is only 50 wide, centered
+      // Child is 50 wide
       expect(child.size.width).toBe(50);
     });
 

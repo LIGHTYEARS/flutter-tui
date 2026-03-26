@@ -865,6 +865,10 @@ export class WidgetsBinding {
       this.setOutput(options.output);
     }
 
+    if (options?.errorLogger) {
+      this.frameScheduler.setErrorLogger(options.errorLogger);
+    }
+
     // Determine terminal size -- use reasonable defaults in test mode
     let cols = 80;
     let rows = 24;
@@ -971,25 +975,13 @@ export class WidgetsBinding {
  * Options for runApp.
  */
 export interface RunAppOptions {
-  /**
-   * Output writer for terminal rendering.
-   * Pass `process.stdout` to render to the terminal.
-   * If omitted, output must be set later via `binding.setOutput()`.
-   */
   output?: OutputWriter;
 
-  /**
-   * Whether to initialize terminal (raw mode, alt screen, stdin input).
-   * Defaults to true in production, false in test mode.
-   * When true, the process stays alive to receive keyboard/mouse input.
-   */
   terminal?: boolean;
 
-  /**
-   * Callback invoked when the root element has been mounted.
-   * Amp ref: cz8 options.onRootElementMounted
-   */
   onRootElementMounted?: () => void;
+
+  errorLogger?: (msg: string, ...args: unknown[]) => void;
 }
 
 /**

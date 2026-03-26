@@ -141,6 +141,9 @@ export class FrameScheduler {
   // Amp ref: c9._lastCompletedStats = this.deepCopyStats(this._stats)
   private _lastCompletedStats: FrameStats = this.deepCopyStats(this._stats);
 
+  private _errorLogger: (msg: string, ...args: unknown[]) => void =
+    console.error;
+
   // -------------------------------------------------------------------------
   // Singleton Access
   // Amp ref: static get instance() { return c9._instance ??= new c9; }
@@ -189,6 +192,10 @@ export class FrameScheduler {
    */
   enableFramePacing(): void {
     this._useFramePacing = true;
+  }
+
+  setErrorLogger(logger: (msg: string, ...args: unknown[]) => void): void {
+    this._errorLogger = logger;
   }
 
   // -------------------------------------------------------------------------
@@ -317,7 +324,7 @@ export class FrameScheduler {
       // In production, errors would go to a logger. For now, console.error.
       const message =
         error instanceof Error ? error.message : String(error);
-      console.error('Frame execution error:', message);
+      this._errorLogger('Frame execution error:', message);
     } finally {
       // Record frame timing stats
       this.recordFrameStats(performance.now() - startTime);
@@ -373,7 +380,7 @@ export class FrameScheduler {
           // Amp ref: V.error(`Frame callback error in ${g} phase (${s.name})`, {...})
           const message =
             error instanceof Error ? error.message : String(error);
-          console.error(
+          this._errorLogger(
             `Frame callback error in ${phase} phase (${cb.name}):`,
             message,
           );
@@ -413,7 +420,7 @@ export class FrameScheduler {
           // Amp ref: V.error(`Post-frame callback error (${b || "anonymous"}):`, ...)
           const message =
             error instanceof Error ? error.message : String(error);
-          console.error(
+          this._errorLogger(
             `Post-frame callback error (${name || 'anonymous'}):`,
             message,
           );

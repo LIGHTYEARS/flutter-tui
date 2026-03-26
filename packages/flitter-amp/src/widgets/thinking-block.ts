@@ -5,7 +5,7 @@
 // Cancelled: warning (yellow) with "(interrupted)"
 // Content: dim, italic when expanded
 
-import { StatelessWidget, Widget } from 'flitter-core/src/framework/widget';
+import { StatelessWidget, Widget, type BuildContext } from 'flitter-core/src/framework/widget';
 import { Column } from 'flitter-core/src/widgets/flex';
 import { Text } from 'flitter-core/src/widgets/text';
 import { TextStyle } from 'flitter-core/src/core/text-style';
@@ -14,6 +14,7 @@ import { Color } from 'flitter-core/src/core/color';
 import { Padding } from 'flitter-core/src/widgets/padding';
 import { EdgeInsets } from 'flitter-core/src/layout/edge-insets';
 import type { ThinkingItem } from '../acp/types';
+import { AmpThemeProvider } from '../themes';
 
 interface ThinkingBlockProps {
   item: ThinkingItem;
@@ -27,36 +28,32 @@ export class ThinkingBlock extends StatelessWidget {
     this.item = props.item;
   }
 
-  build(): Widget {
+  build(context: BuildContext): Widget {
     const { item } = this;
+    const theme = AmpThemeProvider.maybeOf(context);
 
-    // Amp ref: zk widget — state-dependent icon and color
     let icon: string;
     let color: Color;
     let suffix = '';
 
     if (item.isStreaming) {
-      // Streaming: accent (magenta) with ● indicator
       icon = '● ';
-      color = Color.magenta;
+      color = theme?.base.accent ?? Color.magenta;
     } else if (item.text.length > 0) {
-      // Done: success (green) with ✓
       icon = '\u2713 ';
-      color = Color.green;
+      color = theme?.base.success ?? Color.green;
     } else {
-      // Cancelled/empty: warning (yellow)
       icon = '';
-      color = Color.yellow;
+      color = theme?.base.warning ?? Color.yellow;
       suffix = ' (interrupted)';
     }
 
-    // Amp ref: expand/collapse uses ▶/▼ (lT widget, mutedForeground)
     const chevron = item.collapsed ? '\u25B6' : '\u25BC';
 
     const labelSpans: TextSpan[] = [
       new TextSpan({
         text: `${chevron} `,
-        style: new TextStyle({ foreground: Color.brightBlack }),
+        style: new TextStyle({ foreground: theme?.base.mutedForeground ?? Color.brightBlack }),
       }),
       new TextSpan({
         text: icon,
@@ -71,7 +68,7 @@ export class ThinkingBlock extends StatelessWidget {
     if (suffix) {
       labelSpans.push(new TextSpan({
         text: suffix,
-        style: new TextStyle({ foreground: Color.yellow, italic: true }),
+        style: new TextStyle({ foreground: theme?.base.warning ?? Color.yellow, italic: true }),
       }));
     }
 
@@ -81,7 +78,6 @@ export class ThinkingBlock extends StatelessWidget {
       }),
     ];
 
-    // Amp ref: expanded content is dim, italic
     if (!item.collapsed && item.text.length > 0) {
       const displayText = item.text.length > 500
         ? item.text.slice(0, 500) + '...'
@@ -94,7 +90,7 @@ export class ThinkingBlock extends StatelessWidget {
             text: new TextSpan({
               text: displayText,
               style: new TextStyle({
-                foreground: Color.defaultColor,
+                foreground: theme?.base.foreground ?? Color.defaultColor,
                 dim: true,
                 italic: true,
               }),
@@ -106,7 +102,7 @@ export class ThinkingBlock extends StatelessWidget {
 
     return new Column({
       mainAxisSize: 'min',
-      crossAxisAlignment: 'start',
+      crossAxisAlignment: 'stretch',
       children,
     });
   }

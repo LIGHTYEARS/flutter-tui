@@ -1,7 +1,7 @@
 // Permission dialog — modal overlay for ACP agent permission requests
 // Amp ref: permission dialog with SelectionList for allow/skip/always-allow
 
-import { StatelessWidget, Widget } from 'flitter-core/src/framework/widget';
+import { StatelessWidget, Widget, type BuildContext } from 'flitter-core/src/framework/widget';
 import { Column } from 'flitter-core/src/widgets/flex';
 import { Container } from 'flitter-core/src/widgets/container';
 import { Text } from 'flitter-core/src/widgets/text';
@@ -16,6 +16,7 @@ import { EdgeInsets } from 'flitter-core/src/layout/edge-insets';
 import { SizedBox } from 'flitter-core/src/widgets/sized-box';
 import { BoxConstraints } from 'flitter-core/src/core/box-constraints';
 import type { PermissionRequest } from '../acp/client';
+import { AmpThemeProvider } from '../themes';
 
 interface PermissionDialogProps {
   request: PermissionRequest;
@@ -35,18 +36,19 @@ export class PermissionDialog extends StatelessWidget {
     this.onCancel = props.onCancel;
   }
 
-  build(): Widget {
+  build(context: BuildContext): Widget {
     const { toolCall, options } = this.request;
+    const theme = AmpThemeProvider.maybeOf(context);
 
-    // Map ACP PermissionOption[] to SelectionItem[]
     const items: SelectionItem[] = options.map((opt) => ({
       label: opt.name,
       value: opt.optionId,
       description: opt.kind.replace(/_/g, ' '),
     }));
 
+    const warningColor = theme?.base.warning ?? Color.brightYellow;
     const side = new BorderSide({
-      color: Color.brightYellow,
+      color: warningColor,
       width: 1,
       style: 'rounded' as any,
     });
@@ -65,27 +67,24 @@ export class PermissionDialog extends StatelessWidget {
               mainAxisSize: 'min',
               crossAxisAlignment: 'start',
               children: [
-                // Title
                 new Text({
                   text: new TextSpan({
                     text: 'Permission Required',
                     style: new TextStyle({
-                      foreground: Color.brightYellow,
+                      foreground: warningColor,
                       bold: true,
                     }),
                   }),
                 }),
-                // Tool call info
                 new Text({
                   text: new TextSpan({
                     text: `${toolCall.title} (${toolCall.kind})`,
                     style: new TextStyle({
-                      foreground: Color.white,
+                      foreground: theme?.base.foreground ?? Color.white,
                     }),
                   }),
                 }),
                 new SizedBox({ height: 1 }),
-                // Selection list with options
                 new SelectionList({
                   items,
                   onSelect: this.onSelect,

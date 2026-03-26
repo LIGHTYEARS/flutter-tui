@@ -92,3 +92,11 @@ export { BrailleSpinner } from './utilities/braille-spinner';
 
 // ForceDim inherited widget
 export { ForceDim } from './widgets/force-dim';
+
+// Autocomplete
+export { Autocomplete } from './widgets/autocomplete';
+export type { AutocompleteOption, AutocompleteTrigger } from './widgets/autocomplete';
+
+// StickyHeader widget (header pinned to viewport top on scroll)
+export { StickyHeader } from './widgets/sticky-header';
+export { RenderStickyHeader } from './layout/render-sticky-header';

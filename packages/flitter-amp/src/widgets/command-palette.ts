@@ -1,7 +1,7 @@
 // Command palette — Ctrl+O overlay with searchable action list
 // Amp ref: command palette with SelectionList
 
-import { StatelessWidget, Widget } from 'flitter-core/src/framework/widget';
+import { StatelessWidget, Widget, type BuildContext } from 'flitter-core/src/framework/widget';
 import { Column } from 'flitter-core/src/widgets/flex';
 import { Container } from 'flitter-core/src/widgets/container';
 import { Text } from 'flitter-core/src/widgets/text';
@@ -15,6 +15,7 @@ import { BoxDecoration, Border, BorderSide } from 'flitter-core/src/layout/rende
 import { EdgeInsets } from 'flitter-core/src/layout/edge-insets';
 import { SizedBox } from 'flitter-core/src/widgets/sized-box';
 import { BoxConstraints } from 'flitter-core/src/core/box-constraints';
+import { AmpThemeProvider } from '../themes';
 
 const COMMANDS: SelectionItem[] = [
   { label: 'Clear conversation', value: 'clear', description: 'Remove all messages (Ctrl+L)' },
@@ -37,9 +38,11 @@ export class CommandPalette extends StatelessWidget {
     this.onDismiss = props.onDismiss;
   }
 
-  build(): Widget {
+  build(context: BuildContext): Widget {
+    const theme = AmpThemeProvider.maybeOf(context);
+    const infoColor = theme?.base.info ?? Color.cyan;
     const side = new BorderSide({
-      color: Color.cyan,
+      color: infoColor,
       width: 1,
       style: 'rounded' as any,
     });
@@ -59,18 +62,16 @@ export class CommandPalette extends StatelessWidget {
               mainAxisSize: 'min',
               crossAxisAlignment: 'start',
               children: [
-                // Title
                 new Text({
                   text: new TextSpan({
                     text: 'Command Palette',
                     style: new TextStyle({
-                      foreground: Color.cyan,
+                      foreground: infoColor,
                       bold: true,
                     }),
                   }),
                 }),
                 new SizedBox({ height: 1 }),
-                // Command list
                 new SelectionList({
                   items: COMMANDS,
                   onSelect: this.onExecute,

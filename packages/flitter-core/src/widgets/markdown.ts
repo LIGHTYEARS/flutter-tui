@@ -213,7 +213,11 @@ export class Markdown extends StatelessWidget {
       );
     }
 
-    return new Column({ children });
+    return new Column({
+      crossAxisAlignment: 'stretch',
+      mainAxisSize: 'min',
+      children,
+    });
   }
 
   // ---------------------------------------------------------------------------

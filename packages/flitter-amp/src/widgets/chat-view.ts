@@ -1,9 +1,9 @@
 // ChatView — scrollable conversation view rendering messages, tool calls, and plans
 // Amp ref: $uH (thread view), Sa (user msg), XkL (assistant msg)
-// User messages: left border only (2px green, italic green text), NO label
-// Assistant messages: no border, no label, plain markdown
+// Each user message is wrapped in a StickyHeader (header = "You" role label)
+// Each assistant turn (thinking + markdown + tool calls) is wrapped in a StickyHeader
 
-import { StatelessWidget, Widget } from 'flitter-core/src/framework/widget';
+import { StatelessWidget, Widget, type BuildContext } from 'flitter-core/src/framework/widget';
 import { Column, Row } from 'flitter-core/src/widgets/flex';
 import { Text } from 'flitter-core/src/widgets/text';
 import { TextStyle } from 'flitter-core/src/core/text-style';
@@ -15,31 +15,16 @@ import { SizedBox } from 'flitter-core/src/widgets/sized-box';
 import { Markdown } from 'flitter-core/src/widgets/markdown';
 import { Container } from 'flitter-core/src/widgets/container';
 import { Border, BorderSide, BoxDecoration } from 'flitter-core/src/layout/render-decorated';
-import { ToolCallBlock } from './tool-call-block';
+import { StickyHeader } from 'flitter-core/src/widgets/sticky-header';
+import { ToolCallWidget } from './tool-call/index';
 import { ThinkingBlock } from './thinking-block';
 import { PlanView } from './plan-view';
+import { AmpThemeProvider } from '../themes/index';
+import type { AmpTheme } from '../themes/index';
 import type { ConversationItem } from '../acp/types';
+import { OrbWidget } from './orb-widget';
+import { GlowText } from './glow-text';
 
-// Amp-style static orb — approximation of the animated $XH orb widget
-// The real Amp orb is a WebGL-style animated sphere; this is a static circle
-const AMP_ORB = [
-  '        .::::::.        ',
-  '     .:::::::::::.     ',
-  '   .:::--====--:::.   ',
-  '  .::--==++++==--::.  ',
-  ' .::--==+****+==--::. ',
-  ' :::--==+****+==--::: ',
-  '.::--=-=+****+==-:::..',
-  '.::--==++****++==--::.',
-  ' :::--==+****+==--::: ',
-  ' .::--==+****+==--::. ',
-  '  .::--==++++==--::.  ',
-  '   .:::--====--:::.   ',
-  '     .:::::::::::.     ',
-  '        .::::::.        ',
-];
-
-// Inspirational quotes shown on welcome screen (Amp rotates these)
 const QUOTES = [
   '"The best way to predict the future is to invent it." — Alan Kay',
   '"Simplicity is the ultimate sophistication." — Leonardo da Vinci',
@@ -63,14 +48,14 @@ export class ChatView extends StatelessWidget {
     this.error = props.error ?? null;
   }
 
-  build(): Widget {
+  build(context: BuildContext): Widget {
     if (this.items.length === 0) {
-      return this.buildWelcomeScreen();
+      return this.buildWelcomeScreen(context);
     }
 
+    const theme = AmpThemeProvider.maybeOf(context);
     const children: Widget[] = [];
 
-    // Error banner at the top of chat
     if (this.error) {
       children.push(
         new Padding({
@@ -78,45 +63,57 @@ export class ChatView extends StatelessWidget {
           child: new Text({
             text: new TextSpan({
               text: `Error: ${this.error}`,
-              style: new TextStyle({ foreground: Color.red, bold: true }),
+              style: new TextStyle({ foreground: theme?.base.destructive ?? Color.red, bold: true }),
             }),
           }),
         })
       );
     }
 
-    for (let i = 0; i < this.items.length; i++) {
+    /**
+     * Group consecutive assistant-related items (thinking, assistant_message,
+     * tool_call) into "assistant turns". Each user_message and plan item
+     * stands on its own. Each group becomes a StickyHeader block.
+     */
+    let i = 0;
+    while (i < this.items.length) {
       const item = this.items[i];
 
-      // Amp ref: 1-line gap between messages (new YH({height: 1}))
-      if (i > 0) {
+      if (children.length > 0) {
         children.push(new SizedBox({ height: 1 }));
       }
 
-      switch (item.type) {
-        case 'user_message':
-          children.push(this.buildUserMessage(item.text));
-          break;
-
-        case 'assistant_message':
-          children.push(this.buildAssistantMessage(item.text, item.isStreaming));
-          break;
-
-        case 'tool_call':
-          children.push(new ToolCallBlock({ item }));
-          break;
-
-        case 'thinking':
-          children.push(new ThinkingBlock({ item }));
-          break;
-
-        case 'plan':
-          children.push(new PlanView({ entries: item.entries }));
-          break;
+      if (item.type === 'user_message') {
+        children.push(this.buildUserStickyHeader(item.text, theme));
+        i++;
+      } else if (item.type === 'plan') {
+        children.push(new PlanView({ entries: item.entries }));
+        i++;
+      } else {
+        const turnWidgets: Widget[] = [];
+        while (i < this.items.length) {
+          const cur = this.items[i];
+          if (cur.type === 'thinking') {
+            turnWidgets.push(new ThinkingBlock({ item: cur }));
+            i++;
+          } else if (cur.type === 'assistant_message') {
+            turnWidgets.push(this.buildAssistantMessage(cur.text, cur.isStreaming, theme));
+            i++;
+          } else if (cur.type === 'tool_call') {
+            turnWidgets.push(new ToolCallWidget({
+              toolCall: cur,
+              isExpanded: !cur.collapsed,
+            }));
+            i++;
+          } else {
+            break;
+          }
+        }
+        if (turnWidgets.length > 0) {
+          children.push(this.buildAssistantStickyHeader(turnWidgets));
+        }
       }
     }
-
-    // Amp ref: 1 line bottom margin handled by outer padding in app.ts
 
     return new Column({
       mainAxisSize: 'min',
@@ -125,102 +122,24 @@ export class ChatView extends StatelessWidget {
     });
   }
 
-  private buildWelcomeScreen(): Widget {
-    // Pick a deterministic quote based on the day
-    const dayIndex = Math.floor(Date.now() / 86400000) % QUOTES.length;
-    const quote = QUOTES[dayIndex];
+  /**
+   * Wraps a user message in a StickyHeader with a "You" role label header.
+   */
+  private buildUserStickyHeader(text: string, theme?: AmpTheme): Widget {
+    const successColor = theme?.base.success ?? Color.green;
+    const fgColor = theme?.base.foreground ?? Color.defaultColor;
 
-    // Amp ref: welcome screen is a Row (Y$, direction:"horizontal")
-    // [orb, SizedBox(width:2), SizedBox(width:50){Column of text}]
-
-    // Left side: static orb in green
-    const orbLines: Widget[] = [];
-    for (const line of AMP_ORB) {
-      orbLines.push(new Text({
-        text: new TextSpan({
-          text: line,
-          style: new TextStyle({ foreground: Color.green }),
-        }),
-      }));
-    }
-    const orbWidget = new Column({
-      mainAxisSize: 'min',
-      crossAxisAlignment: 'center',
-      children: orbLines,
+    const header = new Text({
+      text: new TextSpan({
+        text: 'You',
+        style: new TextStyle({ foreground: successColor, bold: true }),
+      }),
     });
 
-    // Right side: text content (Amp: SizedBox width:50, Column crossAxisAlignment:start)
-    const textContent = new Column({
-      mainAxisSize: 'min',
-      crossAxisAlignment: 'start',
-      children: [
-        // "Welcome to Amp" title
-        new Text({
-          text: new TextSpan({
-            text: 'Welcome to Amp',
-            style: new TextStyle({ foreground: Color.green, bold: true }),
-          }),
-        }),
-
-        new SizedBox({ height: 1 }),
-
-        // Help hint — Amp: "Ctrl+O" blue, " for " dim, "help" yellow
-        new Text({
-          text: new TextSpan({
-            children: [
-              new TextSpan({
-                text: 'Ctrl+O',
-                style: new TextStyle({ foreground: Color.blue }),
-              }),
-              new TextSpan({
-                text: ' for ',
-                style: new TextStyle({ foreground: Color.defaultColor, dim: true }),
-              }),
-              new TextSpan({
-                text: 'help',
-                style: new TextStyle({ foreground: Color.yellow }),
-              }),
-            ],
-          }),
-        }),
-
-        new SizedBox({ height: 1 }),
-
-        // Inspirational quote
-        new Text({
-          text: new TextSpan({
-            text: quote,
-            style: new TextStyle({ dim: true, italic: true }),
-          }),
-        }),
-      ],
-    });
-
-    // Amp ref: Row(mainAxisAlignment:center, crossAxisAlignment:center, mainAxisSize:min)
-    const welcomeRow = new Row({
-      mainAxisSize: 'min',
-      crossAxisAlignment: 'center',
-      children: [
-        orbWidget,
-        new SizedBox({ width: 2 }), // horizontal spacer
-        textContent,
-      ],
-    });
-
-    // Center the whole thing in the available space
-    return new Column({
-      mainAxisAlignment: 'center',
-      crossAxisAlignment: 'center',
-      children: [welcomeRow],
-    });
-  }
-
-  // Amp ref: Sa widget — left border 2px success/green, italic green text, NO label
-  private buildUserMessage(text: string): Widget {
-    return new Container({
+    const body = new Container({
       decoration: new BoxDecoration({
         border: new Border({
-          left: new BorderSide({ color: Color.green, width: 2, style: 'solid' }),
+          left: new BorderSide({ color: successColor, width: 2, style: 'solid' }),
         }),
       }),
       padding: EdgeInsets.only({ left: 1 }),
@@ -228,24 +147,114 @@ export class ChatView extends StatelessWidget {
         text: new TextSpan({
           text: text,
           style: new TextStyle({
-            foreground: Color.green,
+            foreground: fgColor,
             italic: true,
           }),
         }),
       }),
     });
+
+    return new StickyHeader({ header, body });
   }
 
-  // Amp ref: XkL function — no border, no label, just markdown directly
-  private buildAssistantMessage(text: string, _isStreaming: boolean): Widget {
+  /**
+   * Wraps a group of assistant-turn widgets in a StickyHeader with an empty header.
+   */
+  private buildAssistantStickyHeader(turnWidgets: Widget[]): Widget {
+    const header = SizedBox.shrink();
+
+    const body = turnWidgets.length === 1
+      ? turnWidgets[0]
+      : new Column({
+          mainAxisSize: 'min',
+          crossAxisAlignment: 'stretch',
+          children: turnWidgets,
+        });
+
+    return new StickyHeader({ header, body });
+  }
+
+  private buildWelcomeScreen(context: BuildContext): Widget {
+    const theme = AmpThemeProvider.maybeOf(context);
+    const dayIndex = Math.floor(Date.now() / 86400000) % QUOTES.length;
+    const quote = QUOTES[dayIndex];
+
+    const orbWidget = new OrbWidget();
+
+    const successColor = theme?.base.success ?? Color.green;
+    const keybindColor = theme?.app.keybind ?? Color.blue;
+    const warningColor = theme?.base.warning ?? Color.yellow;
+    const mutedColor = theme?.base.mutedForeground ?? Color.brightBlack;
+
+    const textContent = new Column({
+      mainAxisSize: 'min',
+      crossAxisAlignment: 'start',
+      children: [
+        new GlowText({
+          text: 'Welcome to Amp',
+          baseColor: successColor,
+          glowColor: Color.rgb(200, 255, 200),
+          bold: true,
+          glowIntensity: 0.4,
+        }),
+
+        new SizedBox({ height: 1 }),
+
+        new Text({
+          text: new TextSpan({
+            children: [
+              new TextSpan({
+                text: 'Ctrl+O',
+                style: new TextStyle({ foreground: keybindColor }),
+              }),
+              new TextSpan({
+                text: ' for help',
+                style: new TextStyle({ foreground: warningColor }),
+              }),
+            ],
+          }),
+        }),
+
+        new SizedBox({ height: 1 }),
+
+        new Text({
+          text: new TextSpan({
+            text: quote,
+            style: new TextStyle({ foreground: mutedColor, italic: true }),
+          }),
+        }),
+      ],
+    });
+
+    const welcomeRow = new Row({
+      mainAxisSize: 'min',
+      crossAxisAlignment: 'center',
+      children: [
+        orbWidget,
+        new SizedBox({ width: 2 }),
+        textContent,
+      ],
+    });
+
+    return new Column({
+      mainAxisAlignment: 'center',
+      crossAxisAlignment: 'center',
+      children: [welcomeRow],
+    });
+  }
+
+  /**
+   * Renders an assistant message as Markdown, or a streaming placeholder.
+   */
+  private buildAssistantMessage(text: string, _isStreaming: boolean, theme?: AmpTheme): Widget {
     if (text.length > 0) {
       return new Markdown({ markdown: text });
     }
-    // Placeholder while streaming hasn't produced text yet
+    const mutedColor = theme?.base.mutedForeground ?? Color.brightBlack;
     return new Text({
       text: new TextSpan({
         text: '...',
-        style: new TextStyle({ foreground: Color.brightBlack }),
+        style: new TextStyle({ foreground: mutedColor }),
       }),
     });
   }

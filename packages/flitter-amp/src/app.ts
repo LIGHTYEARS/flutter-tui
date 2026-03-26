@@ -38,11 +38,12 @@ import type { KeyEvent, KeyEventResult } from 'flitter-core/src/input/events';
 import { AppState } from './state/app-state';
 import { PromptHistory } from './state/history';
 import { ChatView } from './widgets/chat-view';
-import { InputArea } from './widgets/input-area';
-import { StatusBar } from './widgets/status-bar';
+import { BottomGrid } from './widgets/bottom-grid';
 import { PermissionDialog } from './widgets/permission-dialog';
 import { CommandPalette } from './widgets/command-palette';
 import { FilePicker } from './widgets/file-picker';
+import { AmpThemeProvider, createAmpTheme, darkTheme as darkBaseTheme } from './themes/index';
+import { log } from './utils/logger';
 
 // --- App Widget ---
 
@@ -223,30 +224,28 @@ class AppStateWidget extends State<App> {
                 }),
           }),
 
-          // Input area — full-width with top separator and mode label
-          new InputArea({
+          // Bottom grid — input area with 4-corner overlay status (Amp: ContainerWithOverlays)
+          new BottomGrid({
             onSubmit: (text: string) => {
               this.promptHistory.push(text);
               this.widget.onSubmit(text);
             },
             isProcessing: appState.isProcessing,
-            mode: appState.currentMode,
-          }),
-
-          // Bottom status bar (Amp: cwd + git branch)
-          new StatusBar({
+            currentMode: appState.currentMode ?? 'smart',
             cwd: appState.cwd,
-            gitBranch: appState.gitBranch,
-            isProcessing: appState.isProcessing,
+            gitBranch: appState.gitBranch ?? undefined,
+            tokenUsage: appState.usage ?? undefined,
           }),
         ],
       }),
     });
 
     // Overlay priority: permission dialog > command palette > none
+    let result: Widget = mainContent;
+
     if (appState.hasPendingPermission) {
       const request = appState.permissionRequest!;
-      return new Stack({
+      result = new Stack({
         fit: 'expand',
         children: [
           mainContent,
@@ -267,10 +266,8 @@ class AppStateWidget extends State<App> {
           }),
         ],
       });
-    }
-
-    if (this.showCommandPalette) {
-      return new Stack({
+    } else if (this.showCommandPalette) {
+      result = new Stack({
         fit: 'expand',
         children: [
           mainContent,
@@ -301,10 +298,8 @@ class AppStateWidget extends State<App> {
           }),
         ],
       });
-    }
-
-    if (this.showFilePicker && this.fileList.length > 0) {
-      return new Stack({
+    } else if (this.showFilePicker && this.fileList.length > 0) {
+      result = new Stack({
         fit: 'expand',
         children: [
           mainContent,
@@ -313,7 +308,7 @@ class AppStateWidget extends State<App> {
             bottom: 3,
             child: new FilePicker({
               files: this.fileList,
-              onSelect: (filePath: string) => {
+              onSelect: (_filePath: string) => {
                 this.setState(() => { this.showFilePicker = false; });
                 // TODO: insert @filePath into InputArea text when controller is exposed
               },
@@ -326,7 +321,10 @@ class AppStateWidget extends State<App> {
       });
     }
 
-    return mainContent;
+    return new AmpThemeProvider({
+      theme: createAmpTheme(darkBaseTheme),
+      child: result,
+    });
   }
 }
 
@@ -341,5 +339,6 @@ export async function startTUI(
   return runApp(app, {
     output: process.stdout,
     terminal: true,
+    errorLogger: log.error,
   });
 }

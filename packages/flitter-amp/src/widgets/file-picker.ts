@@ -1,7 +1,7 @@
 // FilePicker — overlay widget for @file mention selection
 // Displays a SelectionList of files from the working directory
 
-import { StatelessWidget, Widget } from 'flitter-core/src/framework/widget';
+import { StatelessWidget, Widget, type BuildContext } from 'flitter-core/src/framework/widget';
 import { Column } from 'flitter-core/src/widgets/flex';
 import { Container } from 'flitter-core/src/widgets/container';
 import { Text } from 'flitter-core/src/widgets/text';
@@ -15,6 +15,7 @@ import { BoxDecoration, Border, BorderSide } from 'flitter-core/src/layout/rende
 import { EdgeInsets } from 'flitter-core/src/layout/edge-insets';
 import { SizedBox } from 'flitter-core/src/widgets/sized-box';
 import { BoxConstraints } from 'flitter-core/src/core/box-constraints';
+import { AmpThemeProvider } from '../themes';
 
 interface FilePickerProps {
   files: string[];
@@ -34,14 +35,16 @@ export class FilePicker extends StatelessWidget {
     this.onDismiss = props.onDismiss;
   }
 
-  build(): Widget {
+  build(context: BuildContext): Widget {
+    const theme = AmpThemeProvider.maybeOf(context);
     const items: SelectionItem[] = this.files.map((f) => ({
       label: f,
       value: f,
     }));
 
+    const successColor = theme?.base.success ?? Color.green;
     const side = new BorderSide({
-      color: Color.green,
+      color: successColor,
       width: 1,
       style: 'rounded' as any,
     });
@@ -64,7 +67,7 @@ export class FilePicker extends StatelessWidget {
                   text: new TextSpan({
                     text: 'Select file',
                     style: new TextStyle({
-                      foreground: Color.green,
+                      foreground: successColor,
                       bold: true,
                     }),
                   }),

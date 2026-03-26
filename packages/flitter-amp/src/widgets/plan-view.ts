@@ -1,7 +1,7 @@
 // PlanView — todo/plan display matching Amp's plan rendering
 // Shows a checklist of plan entries with status icons
 
-import { StatelessWidget, Widget } from 'flitter-core/src/framework/widget';
+import { StatelessWidget, Widget, type BuildContext } from 'flitter-core/src/framework/widget';
 import { Column } from 'flitter-core/src/widgets/flex';
 import { Text } from 'flitter-core/src/widgets/text';
 import { TextStyle } from 'flitter-core/src/core/text-style';
@@ -10,6 +10,7 @@ import { Color } from 'flitter-core/src/core/color';
 import { Padding } from 'flitter-core/src/widgets/padding';
 import { EdgeInsets } from 'flitter-core/src/layout/edge-insets';
 import type { PlanEntry } from '../acp/types';
+import { AmpThemeProvider } from '../themes';
 
 interface PlanViewProps {
   entries: PlanEntry[];
@@ -23,13 +24,15 @@ export class PlanView extends StatelessWidget {
     this.entries = props.entries;
   }
 
-  build(): Widget {
+  build(context: BuildContext): Widget {
+    const theme = AmpThemeProvider.maybeOf(context);
+
     const children: Widget[] = [
       new Text({
         text: new TextSpan({
           text: '  Plan',
           style: new TextStyle({
-            foreground: Color.cyan,
+            foreground: theme?.base.info ?? Color.cyan,
             bold: true,
           }),
         }),
@@ -42,9 +45,9 @@ export class PlanView extends StatelessWidget {
         entry.status === 'in_progress' ? '●' : '○';
 
       const color =
-        entry.status === 'completed' ? Color.green :
-        entry.status === 'in_progress' ? Color.yellow :
-        Color.brightBlack;
+        entry.status === 'completed' ? (theme?.base.success ?? Color.green) :
+        entry.status === 'in_progress' ? (theme?.base.warning ?? Color.yellow) :
+        (theme?.base.mutedForeground ?? Color.brightBlack);
 
       children.push(
         new Text({
@@ -60,7 +63,7 @@ export class PlanView extends StatelessWidget {
       padding: EdgeInsets.symmetric({ vertical: 1 }),
       child: new Column({
         mainAxisSize: 'min',
-        crossAxisAlignment: 'start',
+        crossAxisAlignment: 'stretch',
         children,
       }),
     });
