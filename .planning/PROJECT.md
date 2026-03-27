@@ -6,31 +6,82 @@ A TUI ACP (Agent Client Protocol) client that reverse-engineers Amp CLI's visual
 
 ## Core Value
 
-The chat TUI must strictly replicate Amp CLI's visual effects and interaction patterns — same layout, same collapsible tool calls, same permission dialogs, same keyboard shortcuts.
+A truly functional ACP TUI client that correctly communicates with any ACP agent, renders all protocol messages faithfully, and provides a usable chat experience — not just a visual clone of Amp's layout.
+
+## Milestones
+
+### v0.1.0 — Visual Prototype (COMPLETED 2026-03-27)
+Built the UI shell: widget tree matching Amp's layout, 7 themes, 10 specialized tool renderers, welcome screen, density orb, input area. Established flitter-core rendering pipeline.
+
+**Known debt carried into v0.2.0:**
+- 4 ACP sessionUpdate event names wrong (thinking/usage/mode/session_info never worked)
+- Scroll infrastructure broken (3 independent bugs: no controller listener, no followMode disable, no keyboard scroll)
+- Tool names hardcoded to Amp convention only
+- No connection drop detection
+
+### v0.2.0 — Make It Actually Work (CURRENT)
+Fix all 5 layers of structural defects found in the full E2E audit. Goal: connect to any ACP agent, correctly handle all protocol events, render streaming content reliably, provide working scroll and keyboard interaction.
+
+**Guardrail:** If 3+ consecutive fixes fail to align with Amp CLI chat view behavior, trigger deep research to find remaining implementation gaps before continuing.
 
 ## Requirements
 
-### Validated
+### Validated (v0.1.0)
 
-- ACP client connection — spawns agent subprocess, initializes via ACP protocol, creates sessions (Phase 1)
-- Full-screen TUI shell — header bar, scrollable chat area, scrollbar, bordered input field (Phase 2)
-- ACP-to-TUI wiring — streaming text, tool call events, plan updates flow from agent to widgets (Phase 3)
-- Tool call rendering — collapsible blocks with status icons, inline diff display (Phase 4)
-- Thinking block rendering — collapsible streaming thinking/reasoning display (Phase 4)
-- Plan view — checklist display from agent plan updates (Phase 4)
-- Diff card — bordered unified diff display using flitter-core's DiffView (Phase 4)
+- ACP client connection — spawns agent subprocess, initializes via ACP protocol, creates sessions
+- Full-screen TUI shell — scrollable chat area, scrollbar, bordered input field, bottom grid
+- ACP-to-TUI wiring — streaming text and tool call events flow from agent to widgets
+- Tool call rendering — collapsible blocks with status icons, inline diff display
+- Thinking block rendering — collapsible streaming thinking/reasoning display
+- Plan view — checklist display from agent plan updates
+- 7 built-in themes with InheritedWidget propagation
 
-### Active
+### Active (v0.2.0)
 
-- [ ] Permission dialog — SelectionList-based overlay for agent permission requests
-- [ ] Command palette — Ctrl+O opens searchable command list
-- [ ] $EDITOR integration — Ctrl+G opens prompt in external editor
-- [ ] Prompt history — Ctrl+R navigates previous prompts
-- [ ] @file mentions — fuzzy file search for context attachment
-- [ ] Mouse support — click to position cursor, wheel to scroll
-- [ ] Configuration file — ~/.flitter-amp/config.json for persistent settings
-- [ ] Error boundaries — graceful error display in TUI
-- [ ] Session persistence — save/restore conversation threads
+#### Protocol Correctness
+- [ ] **PROTO-01**: Fix 4 sessionUpdate event names to match ACP SDK schema
+- [ ] **PROTO-02**: Fix usage_update field mapping (size/used/cost, not input_tokens/output_tokens)
+- [ ] **PROTO-03**: Declare clientCapabilities in initialize (fs, terminal)
+- [ ] **PROTO-04**: Monitor connection.signal/connection.closed for agent crash detection
+- [ ] **PROTO-05**: Fix terminalOutput listener leak and return type mismatch
+- [ ] **PROTO-06**: Fix waitForTerminalExit return type to match SDK
+- [ ] **PROTO-07**: Fix handleSubmit error path to call notifyListeners()
+
+#### Scroll Infrastructure
+- [ ] **SCROLL-01**: RenderScrollViewport must addListener on ScrollController and markNeedsPaint
+- [ ] **SCROLL-02**: User scroll-up must call disableFollowMode()
+- [ ] **SCROLL-03**: enableFollowMode() must be conditional (only when user hasn't scrolled away)
+- [ ] **SCROLL-04**: Pass enableKeyboardScroll: true to chat ScrollView
+
+#### Streaming Experience
+- [ ] **STREAM-01**: Add streaming cursor/indicator to assistant messages
+- [ ] **STREAM-02**: Throttle setState during streaming (batch chunks)
+- [ ] **STREAM-03**: Handle non-text content types (image, tool_result) gracefully
+- [ ] **STREAM-04**: Remove ThinkingBlock 500-char truncation (or raise significantly)
+
+#### Tool Compatibility
+- [ ] **TOOL-01**: Normalize tool names — map common variants (read_file→Read, execute_command→Bash, etc.)
+- [ ] **TOOL-02**: Fix ToolCallResult.content to handle both nested and flat structures
+- [ ] **TOOL-03**: Use actual tool name in headers instead of hardcoded strings
+- [ ] **TOOL-04**: Make rawInput field extraction resilient to different agent formats
+
+#### UX Polish
+- [ ] **UX-01**: Add background mask to Permission Dialog
+- [ ] **UX-02**: Remove all console.error debug logs from production code
+- [ ] **UX-03**: Use agentInfo.name from initialize response
+- [ ] **UX-04**: Fix Markdown paragraph merging (consecutive non-empty lines)
+- [ ] **UX-05**: Fix Markdown heading prefix (currently all empty strings)
+
+### Deferred (v0.3.0+)
+
+- $EDITOR integration (Ctrl+G) — requires WidgetsBinding.suspend()/resume()
+- Prompt history injection (Ctrl+R) — requires TextEditingController exposure
+- @file mentions / FilePicker — requires file list data source
+- Session persistence — save/restore conversation threads
+- Reconnection on agent crash
+- authenticate() flow for agents that require auth
+- Virtual list for long conversations (performance)
+- StickyHeader stack coordination (multiple headers overlapping)
 
 ### Out of Scope
 
@@ -84,4 +135,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-26 after initialization*
+*Last updated: 2026-03-27 after v0.2.0 milestone initialization (full E2E audit)*

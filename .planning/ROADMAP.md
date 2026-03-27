@@ -2,107 +2,132 @@
 
 **Created:** 2026-03-26
 **Granularity:** Coarse
-**Core Value:** The chat TUI must strictly replicate Amp CLI's visual effects and interaction patterns
+**Core Value:** A truly functional ACP TUI client that correctly communicates with any ACP agent
 
-## Milestone 1: v0.1.0 — Full Amp-Faithful ACP Client TUI
+## Milestone 1: v0.1.0 — Visual Prototype (COMPLETED)
 
-### Phase 1: ACP Client Connection ✓
-
-**Goal:** Spawn an ACP agent subprocess, perform initialize handshake, create session, and handle all agent callbacks.
-
-**Requirements:** ACP-01, ACP-02, ACP-03, ACP-04, ACP-05
-
-**Success Criteria:**
-1. Agent subprocess spawns with configurable command and args
-2. ACP initialize handshake completes and returns agent capabilities
-3. Session is created and ready to receive prompts
-4. readTextFile/writeTextFile/createTerminal callbacks handle agent requests
-
-**Status:** Complete
+Phases 1-6 built the UI shell. See git history for details.
 
 ---
 
-### Phase 2: Minimal TUI Shell ✓
+## Milestone 2: v0.2.0 — Make It Actually Work
 
-**Goal:** Full-screen alt-screen TUI with Amp layout: header + scrollable chat + scrollbar + bordered input field.
+### Phase 7: Protocol Correctness
 
-**Requirements:** TUI-01, TUI-02, TUI-03, TUI-04, TUI-05
+**Goal:** Fix all ACP protocol-level bugs so the client correctly communicates with any ACP agent.
+
+**Requirements:** PROTO-01, PROTO-02, PROTO-03, PROTO-04, PROTO-05, PROTO-06, PROTO-07
+
+**Key Changes:**
+1. Fix 4 sessionUpdate event names: `thinking_chunk`→`agent_thought_chunk`, `usage`→`usage_update`, `current_mode`→`current_mode_update`, `session_info`→`session_info_update`
+2. Fix usage_update field mapping: SDK uses `{size, used, cost}`, not `{input_tokens, output_tokens, cost}`
+3. Declare clientCapabilities in initialize: `{fs: {readTextFile: true, writeTextFile: true}, terminal: true}`
+4. Monitor connection.signal/connection.closed — set error state and exit processing on agent crash
+5. Fix terminalOutput: persistent output collection from createTerminal, no listener leak, correct return shape
+6. Fix waitForTerminalExit return type to match `{exitCode?, signal?}`
+7. Fix handleSubmit catch: call notifyListeners() + finalizeAssistantMessage/finalizeThinking
 
 **Success Criteria:**
-1. TUI renders full-screen with header, chat area, scrollbar, and input
-2. Input area has bordered container with mode indicator overlay
-3. Header shows agent name, mode, and token usage
-4. Chat view scrolls with bottom-anchor (follow mode)
-5. Scrollbar renders with sub-character precision
+1. `agent_thought_chunk` events render ThinkingBlock content
+2. `usage_update` events update BottomGrid token display
+3. Agent with strict capability checking accepts file/terminal requests
+4. Agent crash displays error message and resets processing state
+5. `bun test` passes in both packages
 
-**Status:** Complete
+**Status:** Pending
 
 ---
 
-### Phase 3: Wire ACP Client to TUI ✓
+### Phase 8: Scroll Infrastructure
 
-**Goal:** Connect ACP client to TUI so prompts go to agent and streaming responses render in chat.
+**Goal:** Fix scroll so it actually works — keyboard, mouse, auto-follow, and user override.
 
-**Requirements:** STRM-01, STRM-02, STRM-03, STRM-04, STRM-05
+**Requirements:** SCROLL-01, SCROLL-02, SCROLL-03, SCROLL-04
+
+**Key Changes:**
+1. `RenderScrollViewport.attach()` — addListener on ScrollController, markNeedsPaint on offset change
+2. `ScrollableState._handleKey/_handleScroll` — call disableFollowMode() when scrolling up
+3. `app.ts stateListener` — only enableFollowMode() when `scrollController.atBottom` was true before the update
+4. Pass `enableKeyboardScroll: true` to chat area SingleChildScrollView
 
 **Success Criteria:**
-1. Typing prompt and pressing Ctrl+Enter sends to agent via ACP
-2. Agent text responses stream into chat view word-by-word
-3. Tool call events render inline in conversation as they arrive
-4. Plan updates display in plan view widget
-5. Usage/cost updates appear in header bar in real-time
+1. j/k/PgUp/PgDn scroll the chat view
+2. Mouse wheel scrolls the chat view
+3. New content auto-scrolls to bottom (follow mode)
+4. User can scroll up during streaming without being yanked back
+5. Scrolling back to bottom re-enables follow mode
+6. Existing scroll tests still pass
 
-**Status:** Complete
+**Status:** Pending
 
 ---
 
-### Phase 4: Tool Call and Diff Rendering ✓
+### Phase 9: Streaming Experience
 
-**Goal:** Render tool calls, file diffs, thinking blocks, and plans inline in conversation matching Amp's collapsible style.
+**Goal:** Make streaming responses feel responsive and informative.
 
-**Requirements:** TOOL-01, TOOL-02, TOOL-03, TOOL-04, TOOL-05
+**Requirements:** STREAM-01, STREAM-02, STREAM-03, STREAM-04
+
+**Key Changes:**
+1. Use `_isStreaming` param in `buildAssistantMessage` — show blinking `▌` cursor at end
+2. Add 50ms throttle to setState in stateListener (batch rapid chunks)
+3. In `agent_message_chunk` handler, log non-text content and render placeholder
+4. Raise ThinkingBlock display limit from 500 to 10000 characters
 
 **Success Criteria:**
-1. Tool calls render as collapsible blocks with chevron and status icon
-2. File diffs render inline with unified format (green/red, line numbers)
-3. Thinking blocks render as collapsible sections with streaming indicator
-4. Plan view renders as checklist with status icons (pending/active/done)
+1. Streaming assistant message shows visible cursor/indicator
+2. Completed message removes the cursor
+3. No visible flicker during rapid streaming
+4. Non-text content shows "[unsupported content type: image]" placeholder
+5. ThinkingBlock can display 5000+ characters when expanded
 
-**Status:** Complete
+**Status:** Pending
 
 ---
 
-### Phase 5: Permission Dialog and Command Palette ✓
+### Phase 10: Tool Compatibility
 
-**Goal:** Handle agent permission requests with SelectionList dialog overlay. Implement Ctrl+O command palette and remaining keyboard shortcuts.
+**Goal:** Make tool call rendering work with any ACP agent, not just Amp.
 
-**Requirements:** PERM-01, PERM-02, PERM-03, PERM-04, CMD-01, CMD-02, CMD-03, KEY-05, KEY-06, KEY-07
+**Requirements:** TOOL-01, TOOL-02, TOOL-03, TOOL-04
+
+**Key Changes:**
+1. Create tool name normalization map: `{read_file: 'Read', execute_command: 'Bash', shell: 'Bash', search: 'Grep', list_files: 'Glob', write_file: 'CreateFile', ...}`
+2. Fix ToolCallResult.content extraction: try `c.text` first, then `c.content?.text`
+3. All tool components: use `this.toolCall.kind ?? this.toolCall.title` in ToolHeader name prop
+4. Each specialized tool: try multiple rawInput field names (e.g., BashTool tries `command`, `cmd`, `shell_command`, `script`, `args`)
 
 **Success Criteria:**
-1. Agent permission request shows modal dialog with allow/skip/always-allow options
-2. User selection resolves permission promise and agent continues execution
-3. Ctrl+O opens command palette with searchable action list
-4. Escape dismisses any open overlay (dialog, palette)
-5. Alt+T toggles all tool call blocks expanded/collapsed
+1. Gemini's `read_file` tool renders with ReadTool (not GenericToolCard)
+2. Codex's `shell` tool renders with BashTool
+3. Tool headers show the actual tool name from the agent
+4. ToolCallResult content is correctly extracted regardless of nesting
 
-**Status:** Complete
+**Status:** Pending
 
 ---
 
-### Phase 6: Polish and Production Features
+### Phase 11: UX Polish
 
-**Goal:** Complete the Amp-faithful experience with $EDITOR, history, @mentions, mouse support, config, and error handling.
+**Goal:** Clean up remaining UX issues for a production-ready experience.
 
-**Requirements:** POL-01, POL-02, POL-03, POL-04, POL-05, POL-06
+**Requirements:** UX-01, UX-02, UX-03, UX-04, UX-05
+
+**Key Changes:**
+1. Permission Dialog: wrap in Stack with full-screen Container(color: semi-transparent black)
+2. Remove all `console.error` debug logs (app.ts:112, any remaining in binding.ts)
+3. Store `agentInfo` from initializeResponse, display name in BottomGrid
+4. Markdown: merge consecutive non-empty lines into single paragraph
+5. Markdown: add heading prefix chars (# → ━, ## → ─, ### → ·)
 
 **Success Criteria:**
-1. Ctrl+G suspends TUI, opens $EDITOR with prompt, resumes TUI with edited text
-2. Ctrl+R navigates previous prompts (up/down through history)
-3. @file triggers fuzzy file search and attaches file context to prompt
-4. Mouse click positions cursor, mouse wheel scrolls chat view
-5. Errors display gracefully in TUI without crashing
+1. Permission dialog has dark overlay behind it
+2. No debug output on stderr during normal operation
+3. BottomGrid shows actual agent name (e.g., "Claude Code" not "ACP Agent")
+4. Multi-line paragraphs in markdown render as single paragraph
+5. Headings are visually distinguishable by level
 
-**Status:** Complete
+**Status:** Pending
 
 ---
 
@@ -110,47 +135,35 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ACP-01 | 1 | Complete |
-| ACP-02 | 1 | Complete |
-| ACP-03 | 1 | Complete |
-| ACP-04 | 1 | Complete |
-| ACP-05 | 1 | Complete |
-| TUI-01 | 2 | Complete |
-| TUI-02 | 2 | Complete |
-| TUI-03 | 2 | Complete |
-| TUI-04 | 2 | Complete |
-| TUI-05 | 2 | Complete |
-| STRM-01 | 3 | Complete |
-| STRM-02 | 3 | Complete |
-| STRM-03 | 3 | Complete |
-| STRM-04 | 3 | Complete |
-| STRM-05 | 3 | Complete |
-| TOOL-01 | 4 | Complete |
-| TOOL-02 | 4 | Complete |
-| TOOL-03 | 4 | Complete |
-| TOOL-04 | 4 | Complete |
-| TOOL-05 | 4 | Complete |
-| PERM-01 | 5 | Complete |
-| PERM-02 | 5 | Complete |
-| PERM-03 | 5 | Complete |
-| PERM-04 | 5 | Complete |
-| CMD-01 | 5 | Complete |
-| CMD-02 | 5 | Complete |
-| CMD-03 | 5 | Complete |
-| KEY-05 | 5 | Complete |
-| KEY-06 | 5 | Complete |
-| KEY-07 | 5 | Complete |
-| POL-01 | 6 | Complete |
-| POL-02 | 6 | Complete |
-| POL-03 | 6 | Complete |
-| POL-04 | 6 | Complete |
-| POL-05 | 6 | Complete |
-| POL-06 | 6 | Complete |
+| PROTO-01 | 7 | Pending |
+| PROTO-02 | 7 | Pending |
+| PROTO-03 | 7 | Pending |
+| PROTO-04 | 7 | Pending |
+| PROTO-05 | 7 | Pending |
+| PROTO-06 | 7 | Pending |
+| PROTO-07 | 7 | Pending |
+| SCROLL-01 | 8 | Pending |
+| SCROLL-02 | 8 | Pending |
+| SCROLL-03 | 8 | Pending |
+| SCROLL-04 | 8 | Pending |
+| STREAM-01 | 9 | Pending |
+| STREAM-02 | 9 | Pending |
+| STREAM-03 | 9 | Pending |
+| STREAM-04 | 9 | Pending |
+| TOOL-01 | 10 | Pending |
+| TOOL-02 | 10 | Pending |
+| TOOL-03 | 10 | Pending |
+| TOOL-04 | 10 | Pending |
+| UX-01 | 11 | Pending |
+| UX-02 | 11 | Pending |
+| UX-03 | 11 | Pending |
+| UX-04 | 11 | Pending |
+| UX-05 | 11 | Pending |
 
-**v1 requirements:** 36 total
-**Mapped:** 36 (100%)
-**Complete:** 36 (Phases 1-6)
+**v0.2.0 requirements:** 25 total
+**Mapped:** 25 (100%)
+**Complete:** 0
 
 ---
 *Roadmap created: 2026-03-26*
-*Last updated: 2026-03-26 after initialization*
+*Last updated: 2026-03-27 after v0.2.0 milestone initialization*

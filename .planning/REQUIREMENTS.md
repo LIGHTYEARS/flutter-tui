@@ -1,157 +1,106 @@
-# Requirements: flitter-amp
+# Requirements: flitter-amp v0.2.0
 
-**Defined:** 2026-03-26
-**Core Value:** The chat TUI must strictly replicate Amp CLI's visual effects and interaction patterns
+**Defined:** 2026-03-27
+**Core Value:** A truly functional ACP TUI client that correctly communicates with any ACP agent, renders all protocol messages faithfully, and provides a usable chat experience.
 
-## v1 Requirements
+## v0.2.0 Requirements
 
-Requirements for initial release. Each maps to roadmap phases.
+### Protocol Correctness
 
-### ACP Connection
+- [ ] **PROTO-01**: Fix 4 sessionUpdate event names to match ACP SDK schema (`agent_thought_chunk`, `usage_update`, `current_mode_update`, `session_info_update`)
+- [ ] **PROTO-02**: Fix usage_update field mapping to use SDK's `{size, used, cost}` structure
+- [ ] **PROTO-03**: Declare `clientCapabilities` in initialize request (fs.readTextFile, fs.writeTextFile, terminal)
+- [ ] **PROTO-04**: Monitor `connection.signal`/`connection.closed` for agent crash — display error in UI and exit processing state
+- [ ] **PROTO-05**: Fix terminalOutput: collect output continuously from createTerminal, stop leaking listeners, match SDK `TerminalOutputResponse` shape
+- [ ] **PROTO-06**: Fix waitForTerminalExit return type to match SDK `WaitForTerminalExitResponse`
+- [ ] **PROTO-07**: Fix handleSubmit error path — call `notifyListeners()` and `finalizeAssistantMessage()`
 
-- [x] **ACP-01**: Client spawns ACP agent subprocess with configurable command
-- [x] **ACP-02**: Client performs ACP initialize handshake and creates session
-- [x] **ACP-03**: Client handles session/update notifications (text chunks, tool calls, plans, usage)
-- [x] **ACP-04**: Client implements readTextFile/writeTextFile callbacks for agent filesystem access
-- [x] **ACP-05**: Client implements createTerminal callback for agent command execution
+### Scroll Infrastructure
 
-### TUI Shell
+- [ ] **SCROLL-01**: `RenderScrollViewport` must `addListener` on ScrollController and call `markNeedsPaint()` on scroll offset change
+- [ ] **SCROLL-02**: User scroll-up (keyboard or mouse) must call `disableFollowMode()`
+- [ ] **SCROLL-03**: `enableFollowMode()` in stateListener must be conditional — only when user hasn't manually scrolled away from bottom
+- [ ] **SCROLL-04**: Pass `enableKeyboardScroll: true` to the chat area's SingleChildScrollView
 
-- [x] **TUI-01**: Full-screen alt-screen rendering with header, chat area, scrollbar, and input field
-- [x] **TUI-02**: Bordered input area with mode indicator overlay (matches Amp layout)
-- [x] **TUI-03**: Header bar displays agent name, mode, processing state, and token usage/cost
-- [x] **TUI-04**: Scrollable chat view with bottom-anchored scroll (follow mode)
-- [x] **TUI-05**: Scrollbar with sub-character precision rendering
+### Streaming Experience
 
-### Streaming
+- [ ] **STREAM-01**: Show streaming cursor/indicator on in-progress assistant messages (use `_isStreaming` param)
+- [ ] **STREAM-02**: Throttle/batch setState during streaming to reduce full-tree rebuilds
+- [ ] **STREAM-03**: Handle non-text content types in `agent_message_chunk` gracefully (log + placeholder widget)
+- [ ] **STREAM-04**: Raise ThinkingBlock content display limit from 500 to 5000+ characters
 
-- [x] **STRM-01**: User prompt submission sends text to agent via ACP
-- [x] **STRM-02**: Agent text responses stream word-by-word into chat view
-- [x] **STRM-03**: Tool call events render inline as they arrive
-- [x] **STRM-04**: Plan updates flow from agent to plan view widget
-- [x] **STRM-05**: Usage/cost updates display in header bar in real-time
+### Tool Compatibility
 
-### Tool Display
+- [ ] **TOOL-01**: Normalize tool names — map common agent variants to specialized renderers (e.g., `read_file`→ReadTool, `execute_command`/`shell`→BashTool, `search`/`grep`→GrepTool)
+- [ ] **TOOL-02**: Fix ToolCallResult.content to handle both nested `{type, content: {type, text}}` and flat `{type, text}` structures
+- [ ] **TOOL-03**: Use actual `toolCall.kind` in tool headers instead of hardcoded strings
+- [ ] **TOOL-04**: Make rawInput field extraction resilient — try multiple field name variants for command, file_path, etc.
 
-- [x] **TOOL-01**: Tool calls render as collapsible blocks with chevron toggle
-- [x] **TOOL-02**: Status icons indicate tool state (in-progress, complete, failed)
-- [x] **TOOL-03**: File diffs render inline with unified diff format (green adds, red removes)
-- [x] **TOOL-04**: Thinking/reasoning blocks render as collapsible sections
-- [x] **TOOL-05**: Plan view renders as checklist with status icons
+### UX Polish
 
-### Permissions
+- [ ] **UX-01**: Add full-screen semi-transparent background mask to Permission Dialog
+- [ ] **UX-02**: Remove all `console.error` debug logs from production code (app.ts, binding.ts)
+- [ ] **UX-03**: Display `agentInfo.name`/`agentInfo.title` from initialize response in BottomGrid
+- [ ] **UX-04**: Fix Markdown paragraph merging — consecutive non-empty lines form one paragraph
+- [ ] **UX-05**: Fix Markdown heading prefix rendering (currently all empty strings)
 
-- [ ] **PERM-01**: Agent permission requests show as modal dialog overlay
-- [ ] **PERM-02**: Permission dialog uses SelectionList with allow/skip/always-allow options
-- [ ] **PERM-03**: Permission dialog navigation matches Amp (j/k/arrows/Enter/Escape)
-- [ ] **PERM-04**: Permission response resolves to agent, unblocking execution
+## Deferred (v0.3.0+)
 
-### Command Palette
-
-- [ ] **CMD-01**: Ctrl+O opens searchable command palette overlay
-- [ ] **CMD-02**: Command palette lists available actions (switch mode, clear, toggle blocks, settings)
-- [ ] **CMD-03**: Command palette navigation matches Amp (j/k/arrows/Enter/Escape)
-
-### Keyboard Shortcuts
-
-- [x] **KEY-01**: Enter inserts newline (multi-line default)
-- [x] **KEY-02**: Ctrl+Enter submits prompt
-- [x] **KEY-03**: Ctrl+C cancels current operation or exits
-- [x] **KEY-04**: PageUp/PageDown scrolls chat
-- [ ] **KEY-05**: Ctrl+L clears display
-- [ ] **KEY-06**: Escape dismisses overlays (dialogs, palette)
-- [ ] **KEY-07**: Alt+T toggles all tool call blocks expanded/collapsed
-
-### Polish
-
-- [ ] **POL-01**: Ctrl+G opens prompt in $EDITOR (suspend TUI, resume after)
-- [ ] **POL-02**: Ctrl+R navigates prompt history
-- [ ] **POL-03**: @file mention triggers fuzzy file search for context
-- [ ] **POL-04**: Mouse click positions cursor, mouse wheel scrolls
-- [ ] **POL-05**: Error boundaries display errors gracefully in TUI (no crashes)
-- [ ] **POL-06**: Configuration file (~/.flitter-amp/config.json) for persistent settings
-
-## v2 Requirements
-
-Deferred to future release. Tracked but not in current roadmap.
-
-### Session Management
-
-- **SESS-01**: User can save and name conversation threads
-- **SESS-02**: User can resume previous threads
-- **SESS-03**: User can list and switch between threads
-
-### Advanced Input
-
-- **INP-01**: $/$$ shell command input with inline result display
-- **INP-02**: Ctrl+V image paste support
-- **INP-03**: Ctrl+S switch agent mode
-
-### Agent Features
-
-- **AGT-01**: MCP server configuration passthrough to agent
-- **AGT-02**: Multi-agent session support (switch between agents)
+- **DEFER-01**: $EDITOR integration (Ctrl+G) — requires WidgetsBinding.suspend()/resume()
+- **DEFER-02**: Prompt history injection (Ctrl+R) — requires TextEditingController exposure
+- **DEFER-03**: @file mentions / FilePicker — requires file list data source
+- **DEFER-04**: Session persistence — save/restore conversation threads
+- **DEFER-05**: Reconnection on agent crash — auto-restart agent process
+- **DEFER-06**: authenticate() flow for agents that require auth
+- **DEFER-07**: Virtual list for long conversations (performance)
+- **DEFER-08**: StickyHeader stack coordination (multiple headers overlapping)
+- **DEFER-09**: Nested tool call rendering (sa__*/tb__* subagent tools)
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| LLM API integration | ACP agent handles all LLM communication |
-| Agent implementation | Client-side only; agents are external |
-| Web/mobile UI | Terminal-only application |
-| Plugin/extension system | Direct implementation for v1 simplicity |
-| Kitty graphics protocol | Text-only rendering for v1 |
-| Syntax highlighting in diffs | Use flitter-core DiffView as-is |
-| Custom themes | Default Amp-matching theme only for v1 |
+| LLM API calls | The ACP agent handles all LLM communication |
+| Agent implementation | We only implement the client side |
+| Mobile/web UI | Terminal only |
+| Plugin system | Direct implementation, no extensibility for v0.2 |
+| Image rendering | No Kitty graphics protocol for v0.2 |
+| OAuth/SSO | Deferred until agents require it |
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ACP-01 | Phase 1 | Complete |
-| ACP-02 | Phase 1 | Complete |
-| ACP-03 | Phase 1 | Complete |
-| ACP-04 | Phase 1 | Complete |
-| ACP-05 | Phase 1 | Complete |
-| TUI-01 | Phase 2 | Complete |
-| TUI-02 | Phase 2 | Complete |
-| TUI-03 | Phase 2 | Complete |
-| TUI-04 | Phase 2 | Complete |
-| TUI-05 | Phase 2 | Complete |
-| STRM-01 | Phase 3 | Complete |
-| STRM-02 | Phase 3 | Complete |
-| STRM-03 | Phase 3 | Complete |
-| STRM-04 | Phase 3 | Complete |
-| STRM-05 | Phase 3 | Complete |
-| TOOL-01 | Phase 4 | Complete |
-| TOOL-02 | Phase 4 | Complete |
-| TOOL-03 | Phase 4 | Complete |
-| TOOL-04 | Phase 4 | Complete |
-| TOOL-05 | Phase 4 | Complete |
-| PERM-01 | Phase 5 | Pending |
-| PERM-02 | Phase 5 | Pending |
-| PERM-03 | Phase 5 | Pending |
-| PERM-04 | Phase 5 | Pending |
-| CMD-01 | Phase 5 | Pending |
-| CMD-02 | Phase 5 | Pending |
-| CMD-03 | Phase 5 | Pending |
-| KEY-05 | Phase 5 | Pending |
-| KEY-06 | Phase 5 | Pending |
-| KEY-07 | Phase 5 | Pending |
-| POL-01 | Phase 6 | Pending |
-| POL-02 | Phase 6 | Pending |
-| POL-03 | Phase 6 | Pending |
-| POL-04 | Phase 6 | Pending |
-| POL-05 | Phase 6 | Pending |
-| POL-06 | Phase 6 | Pending |
+| PROTO-01 | Phase 7 | Pending |
+| PROTO-02 | Phase 7 | Pending |
+| PROTO-03 | Phase 7 | Pending |
+| PROTO-04 | Phase 7 | Pending |
+| PROTO-05 | Phase 7 | Pending |
+| PROTO-06 | Phase 7 | Pending |
+| PROTO-07 | Phase 7 | Pending |
+| SCROLL-01 | Phase 8 | Pending |
+| SCROLL-02 | Phase 8 | Pending |
+| SCROLL-03 | Phase 8 | Pending |
+| SCROLL-04 | Phase 8 | Pending |
+| STREAM-01 | Phase 9 | Pending |
+| STREAM-02 | Phase 9 | Pending |
+| STREAM-03 | Phase 9 | Pending |
+| STREAM-04 | Phase 9 | Pending |
+| TOOL-01 | Phase 10 | Pending |
+| TOOL-02 | Phase 10 | Pending |
+| TOOL-03 | Phase 10 | Pending |
+| TOOL-04 | Phase 10 | Pending |
+| UX-01 | Phase 11 | Pending |
+| UX-02 | Phase 11 | Pending |
+| UX-03 | Phase 11 | Pending |
+| UX-04 | Phase 11 | Pending |
+| UX-05 | Phase 11 | Pending |
 
 **Coverage:**
-- v1 requirements: 36 total
-- Mapped to phases: 36
-- Unmapped: 0
+- v0.2.0 requirements: 25 total
+- Mapped to phases: 25
+- Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-03-26*
-*Last updated: 2026-03-26 after initial definition*
+*Requirements defined: 2026-03-27*
+*Last updated: 2026-03-27 after v0.2.0 milestone initialization*
