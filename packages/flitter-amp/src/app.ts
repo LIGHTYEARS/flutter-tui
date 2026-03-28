@@ -82,9 +82,9 @@ class AppStateWidget extends State<App> {
     super.initState();
     // Listen to AppState changes and trigger rebuilds
     this.stateListener = () => {
+      const wasAtBottom = this.scrollController.atBottom;
       this.setState(() => {});
-      // Auto-scroll to bottom when new content arrives
-      if (this.widget.appState.isProcessing) {
+      if (this.widget.appState.isProcessing && wasAtBottom) {
         this.scrollController.enableFollowMode();
       }
     };
@@ -109,6 +109,7 @@ class AppStateWidget extends State<App> {
   build(): Widget {
     const appState = this.widget.appState;
     const items = appState.conversation.items;
+    console.error(`[APP-DEBUG] build: items.length=${items.length}, isProcessing=${appState.isProcessing}`);
 
     // Amp ref: scrollbarThumb = foreground (gH.default()), scrollbarTrack = index(8)
     const scrollThumbColor = Color.defaultColor;
@@ -205,6 +206,7 @@ class AppStateWidget extends State<App> {
                       child: new SingleChildScrollView({
                         controller: this.scrollController,
                         position: 'bottom',
+                        enableKeyboardScroll: true,
                         // Amp ref: a$({padding: H$.only({left: 2, right: 2-3, bottom: 1})})
                         child: new Padding({
                           padding: EdgeInsets.only({ left: 2, right: 2, bottom: 1 }),
@@ -235,6 +237,7 @@ class AppStateWidget extends State<App> {
             cwd: appState.cwd,
             gitBranch: appState.gitBranch ?? undefined,
             tokenUsage: appState.usage ?? undefined,
+            skillCount: appState.skillCount,
           }),
         ],
       }),
