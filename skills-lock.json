@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "logging-best-practices": {
+      "source": "aj-geddes/useful-ai-prompts",
+      "sourceType": "github",
+      "computedHash": "3014f6c866622db4de48a1f4872b594b33b242017d5e75fbd595e1307eef6991"
+    }
+  }
+}

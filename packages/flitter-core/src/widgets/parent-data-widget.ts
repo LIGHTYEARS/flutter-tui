@@ -104,12 +104,16 @@ export class ParentDataElement extends Element {
       if (this._child.widget.canUpdate(w.child)) {
         this._child.update(w.child);
       } else {
-        // Replace child
+        const oldRenderObject = this._child.renderObject;
         this._child.unmount();
         this.removeChild(this._child);
         this._child = w.child.createElement();
         this.addChild(this._child);
         this._mountChild(this._child);
+        const newRenderObject = this._child.renderObject;
+        if (oldRenderObject !== newRenderObject) {
+          this._replaceRenderObjectInAncestor(oldRenderObject, newRenderObject);
+        }
       }
     }
     this._applyParentData();
