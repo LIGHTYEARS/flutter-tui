@@ -22,7 +22,7 @@ import { PlanView } from './plan-view';
 import { AmpThemeProvider } from '../themes/index';
 import type { AmpTheme } from '../themes/index';
 import type { ConversationItem } from '../acp/types';
-import { OrbWidget } from './orb-widget';
+import { DensityOrbWidget } from './density-orb-widget';
 import { GlowText } from './glow-text';
 
 const QUOTES = [
@@ -179,12 +179,13 @@ export class ChatView extends StatelessWidget {
     const dayIndex = Math.floor(Date.now() / 86400000) % QUOTES.length;
     const quote = QUOTES[dayIndex];
 
-    const orbWidget = new OrbWidget();
+    const orbWidget = new DensityOrbWidget();
 
     const successColor = theme?.base.success ?? Color.green;
     const keybindColor = theme?.app.keybind ?? Color.blue;
     const warningColor = theme?.base.warning ?? Color.yellow;
     const mutedColor = theme?.base.mutedForeground ?? Color.brightBlack;
+    const fgColor = theme?.base.foreground ?? Color.defaultColor;
 
     const textContent = new Column({
       mainAxisSize: 'min',
@@ -210,6 +211,27 @@ export class ChatView extends StatelessWidget {
               new TextSpan({
                 text: ' for help',
                 style: new TextStyle({ foreground: warningColor }),
+              }),
+            ],
+          }),
+        }),
+
+        new SizedBox({ height: 1 }),
+
+        new Text({
+          text: new TextSpan({
+            children: [
+              new TextSpan({
+                text: 'Use the ',
+                style: new TextStyle({ foreground: mutedColor }),
+              }),
+              new TextSpan({
+                text: 'settings: open in editor',
+                style: new TextStyle({ foreground: fgColor }),
+              }),
+              new TextSpan({
+                text: ' command to configure Amp',
+                style: new TextStyle({ foreground: mutedColor }),
               }),
             ],
           }),

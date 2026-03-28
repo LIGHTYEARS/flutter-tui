@@ -560,21 +560,20 @@ export class WidgetsBinding {
    * Amp ref: J3.paint()
    */
   paint(): void {
-    if (!this._shouldPaintCurrentFrame) return;
+    if (!this._shouldPaintCurrentFrame) {
+      return;
+    }
 
-    // Flush paint dirty flags on the pipeline owner
     this.pipelineOwner.flushPaint();
 
-    // Get root render object
     const rootRO = this.pipelineOwner.rootNode;
     if (!rootRO) return;
 
-    // Use tui's screen buffer (Amp ref: J3.paint uses this.tui screen)
     const screen = this._tui.screenBuffer;
     screen.clear();
 
-    // DFS paint the render tree using the real PaintContext and paintRenderTree
     paintRenderTree(rootRO, screen);
+
 
     // Draw performance overlay on top if enabled (Phase 21: PERF-03)
     if (this._showFrameStatsOverlay && this._perfOverlay) {
@@ -591,13 +590,13 @@ export class WidgetsBinding {
    * Amp ref: J3.render() calls this.tui.render() which is flush()
    */
   render(): void {
-    if (!this._didPaintCurrentFrame) return;
+    if (!this._didPaintCurrentFrame) {
+      return;
+    }
 
-    // Use tui's screen buffer and renderer for diffing/output
     const screen = this._tui.screenBuffer;
     const renderer = this._tui.renderer;
 
-    // Get diff from screen buffer
     const patches = screen.getDiff();
 
     // Build cursor state
@@ -610,7 +609,6 @@ export class WidgetsBinding {
     // Generate ANSI output
     const output = renderer.render(patches, cursor);
 
-    // Write to output if available (legacy OutputWriter path)
     if (this._output && output.length > 0) {
       this._output.write(output);
     }
@@ -869,12 +867,14 @@ export class WidgetsBinding {
       this.frameScheduler.setErrorLogger(options.errorLogger);
     }
 
-    // Determine terminal size -- use reasonable defaults in test mode
     let cols = 80;
     let rows = 24;
-    let platform: any = null;
+    let platform: PlatformAdapter | null = null;
 
-    if (!inTest) {
+    if (options?.size) {
+      cols = options.size.columns;
+      rows = options.size.rows;
+    } else {
       try {
         platform = new BunPlatform();
         const size = platform.getTerminalSize();
@@ -884,6 +884,8 @@ export class WidgetsBinding {
         // BunPlatform not available, use defaults
       }
     }
+
+    this._renderViewSize = new Size(cols, rows);
 
     // Wrap the user's widget in MediaQuery so all descendants can access screen size
     // Amp ref: J3.createMediaQueryWrapper(g)
@@ -936,7 +938,7 @@ export class WidgetsBinding {
     }
 
     // Register SIGWINCH handler for terminal resize
-    if (!inTest && typeof process !== 'undefined') {
+    if (enableTerminal && typeof process !== 'undefined') {
       process.on('SIGWINCH', () => {
         try {
           // Use TerminalManager's platform for size query
@@ -978,6 +980,8 @@ export interface RunAppOptions {
   output?: OutputWriter;
 
   terminal?: boolean;
+
+  size?: { columns: number; rows: number };
 
   onRootElementMounted?: () => void;
 

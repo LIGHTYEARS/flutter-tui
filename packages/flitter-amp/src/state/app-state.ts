@@ -80,7 +80,7 @@ export class AppState implements ClientCallbacks {
         break;
       }
 
-      case 'agent_thought_chunk': {
+      case 'thinking_chunk': {
         const content = update.content as { type: string; text?: string };
         if (content?.type === 'text' && content.text) {
           this.conversation.appendThinkingChunk(content.text);
@@ -120,28 +120,25 @@ export class AppState implements ClientCallbacks {
         break;
       }
 
-      case 'usage_update': {
+      case 'usage': {
+        const usage = update.usage as { input_tokens?: number; output_tokens?: number; cost?: number };
         this.conversation.setUsage({
-          size: (update as any).size ?? 0,
-          used: (update as any).used ?? 0,
-          cost: (update as any).cost ?? null,
+          inputTokens: usage.input_tokens ?? 0,
+          outputTokens: usage.output_tokens ?? 0,
+          cost: usage.cost,
         });
         break;
       }
 
-      case 'current_mode_update': {
+      case 'current_mode': {
         this.currentMode = update.currentModeId as string;
         break;
       }
 
-      case 'session_info_update': {
+      case 'session_info': {
+        // Session metadata update
         break;
       }
-
-      case 'user_message_chunk':
-      case 'available_commands_update':
-      case 'config_option_update':
-        break;
 
       default:
         log.debug(`Unknown session update type: ${type}`);
@@ -200,14 +197,6 @@ export class AppState implements ClientCallbacks {
 
   clearError(): void {
     this.error = null;
-    this.notifyListeners();
-  }
-
-  handleError(message: string): void {
-    this.conversation.finalizeAssistantMessage();
-    this.conversation.finalizeThinking();
-    this.conversation.isProcessing = false;
-    this.error = message;
     this.notifyListeners();
   }
 }

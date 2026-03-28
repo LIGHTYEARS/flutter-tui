@@ -7,7 +7,8 @@ import { createCell, type CellStyle } from '../../terminal/cell';
 import { TextSpan } from '../../core/text-span';
 import { TextStyle } from '../../core/text-style';
 import { Color } from '../../core/color';
-import { PaintContext, BORDER_CHARS } from '../paint-context';
+import { PaintContext, BORDER_CHARS, textStyleToCellStyle } from '../paint-context';
+import { buildSgrDelta } from '../../terminal/renderer';
 import { paintRenderTree, paintRenderObject } from '../paint';
 import { RenderBox, RenderObject, ContainerRenderBox } from '../../framework/render-object';
 import { BoxConstraints } from '../../core/box-constraints';
@@ -91,6 +92,36 @@ describe('PaintContext', () => {
       const continuation = screen.getCell(4, 0);
       expect(continuation.char).toBe('');
       expect(continuation.width).toBe(0);
+    });
+
+    test('textStyleToCellStyle converts foreground/background to fg/bg', () => {
+      const ts = new TextStyle({
+        foreground: Color.rgb(0, 200, 100),
+        background: Color.rgb(40, 0, 0),
+        bold: true,
+      });
+      const cs = textStyleToCellStyle(ts);
+      ctx.drawChar(3, 2, 'X', cs);
+
+      const cell = screen.getCell(3, 2);
+      expect(cell.char).toBe('X');
+      expect(cell.style.fg).toBeDefined();
+      expect(cell.style.fg!.equals(Color.rgb(0, 200, 100))).toBe(true);
+      expect(cell.style.bg).toBeDefined();
+      expect(cell.style.bg!.equals(Color.rgb(40, 0, 0))).toBe(true);
+      expect(cell.style.bold).toBe(true);
+    });
+
+    test('textStyleToCellStyle output survives buildSgrDelta', () => {
+      const ts = new TextStyle({
+        foreground: Color.rgb(0, 180, 90),
+      });
+      const cs = textStyleToCellStyle(ts);
+      ctx.drawChar(0, 0, 'G', cs);
+
+      const cell = screen.getCell(0, 0);
+      const sgr = buildSgrDelta({}, cell.style);
+      expect(sgr).toContain('38;2;0;180;90');
     });
   });
 
@@ -601,5 +632,67 @@ describe('paintRenderTree', () => {
     paintRenderObject(box, ctx, 3, 2);
 
     expect(screen.getCell(3, 2).char).toBe('X');
+  });
+});
+
+describe('textStyleToCellStyle → ANSI color roundtrip', () => {
+  let screen: ScreenBuffer;
+  let ctx: PaintContext;
+
+  beforeEach(() => {
+    screen = new ScreenBuffer(20, 10);
+    ctx = new PaintContext(screen);
+  });
+
+  test('RGB foreground produces 38;2;R;G;B SGR code', () => {
+    const style = new TextStyle({ foreground: Color.rgb(0, 128, 64) });
+    const cs = textStyleToCellStyle(style);
+    ctx.drawChar(0, 0, 'A', cs);
+
+    const cell = screen.getCell(0, 0);
+    expect(cell.style.fg).toBeDefined();
+    expect(cell.style.fg!.r).toBe(0);
+    expect(cell.style.fg!.g).toBe(128);
+    expect(cell.style.fg!.b).toBe(64);
+
+    const sgr = buildSgrDelta({}, cell.style);
+    expect(sgr).toContain('38;2;0;128;64');
+  });
+
+  test('RGB background produces 48;2;R;G;B SGR code', () => {
+    const style = new TextStyle({ background: Color.rgb(30, 0, 60) });
+    const cs = textStyleToCellStyle(style);
+    ctx.drawChar(0, 0, 'B', cs);
+
+    const cell = screen.getCell(0, 0);
+    expect(cell.style.bg).toBeDefined();
+
+    const sgr = buildSgrDelta({}, cell.style);
+    expect(sgr).toContain('48;2;30;0;60');
+  });
+
+  test('ansi256 foreground produces 38;5;N SGR code', () => {
+    const style = new TextStyle({ foreground: Color.ansi256(82) });
+    const cs = textStyleToCellStyle(style);
+    ctx.drawChar(0, 0, 'C', cs);
+
+    const cell = screen.getCell(0, 0);
+    expect(cell.style.fg).toBeDefined();
+
+    const sgr = buildSgrDelta({}, cell.style);
+    expect(sgr).toContain('38;5;82');
+  });
+
+  test('named Color (Color.red) produces correct SGR', () => {
+    const style = new TextStyle({ foreground: Color.red });
+    const cs = textStyleToCellStyle(style);
+    ctx.drawChar(0, 0, 'R', cs);
+
+    const cell = screen.getCell(0, 0);
+    expect(cell.style.fg).toBeDefined();
+
+    const sgr = buildSgrDelta({}, cell.style);
+    expect(sgr.length).toBeGreaterThan(0);
+    expect(sgr).toMatch(/3[0-7]|38;[25];/);
   });
 });

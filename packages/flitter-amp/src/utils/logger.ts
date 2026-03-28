@@ -1,4 +1,9 @@
-// Logging utility — all output goes to stderr since stdout is used for TUI rendering
+// Logging utility — writes to a log file when TUI is running to avoid corrupting the display.
+// Falls back to stderr when no log file is configured (e.g., during tests).
+
+import { existsSync, mkdirSync, createWriteStream, type WriteStream } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir, homedir } from 'node:os';
 
 const LOG_LEVELS = {
   debug: 0,
@@ -10,9 +15,41 @@ const LOG_LEVELS = {
 type LogLevel = keyof typeof LOG_LEVELS;
 
 let currentLevel: LogLevel = 'info';
+let logStream: WriteStream | null = null;
 
 export function setLogLevel(level: LogLevel): void {
   currentLevel = level;
+}
+
+/**
+ * Initialize file-based logging. Must be called before TUI starts.
+ * Logs are written to ~/.flitter/logs/amp-YYYY-MM-DD.log
+ */
+export function initLogFile(): void {
+  try {
+    const logDir = join(homedir(), '.flitter', 'logs');
+    if (!existsSync(logDir)) {
+      mkdirSync(logDir, { recursive: true });
+    }
+    const date = new Date().toISOString().slice(0, 10);
+    const logPath = join(logDir, `amp-${date}.log`);
+    logStream = createWriteStream(logPath, { flags: 'a' });
+    logStream.on('error', () => {
+      logStream = null;
+    });
+  } catch {
+    logStream = null;
+  }
+}
+
+/**
+ * Close log file stream. Call on shutdown.
+ */
+export function closeLogFile(): void {
+  if (logStream) {
+    logStream.end();
+    logStream = null;
+  }
 }
 
 function shouldLog(level: LogLevel): boolean {
@@ -28,28 +65,30 @@ function formatMessage(level: LogLevel, message: string, ...args: unknown[]): st
   return formatted;
 }
 
+function writeLog(level: LogLevel, message: string, ...args: unknown[]): void {
+  if (!shouldLog(level)) return;
+  const line = formatMessage(level, message, ...args) + '\n';
+  if (logStream) {
+    logStream.write(line);
+  } else {
+    process.stderr.write(line);
+  }
+}
+
 export const log = {
   debug(message: string, ...args: unknown[]): void {
-    if (shouldLog('debug')) {
-      process.stderr.write(formatMessage('debug', message, ...args) + '\n');
-    }
+    writeLog('debug', message, ...args);
   },
 
   info(message: string, ...args: unknown[]): void {
-    if (shouldLog('info')) {
-      process.stderr.write(formatMessage('info', message, ...args) + '\n');
-    }
+    writeLog('info', message, ...args);
   },
 
   warn(message: string, ...args: unknown[]): void {
-    if (shouldLog('warn')) {
-      process.stderr.write(formatMessage('warn', message, ...args) + '\n');
-    }
+    writeLog('warn', message, ...args);
   },
 
   error(message: string, ...args: unknown[]): void {
-    if (shouldLog('error')) {
-      process.stderr.write(formatMessage('error', message, ...args) + '\n');
-    }
+    writeLog('error', message, ...args);
   },
 };

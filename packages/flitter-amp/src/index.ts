@@ -45,17 +45,7 @@ async function main(): Promise<void> {
       config.cwd,
       appState,
     );
-    appState.setConnected(handle.sessionId, handle.agentName);
-
-    handle.agent.proc.on('exit', (code, signal) => {
-      if (appState.isConnected) {
-        const reason = signal ? `Agent killed by ${signal}` : `Agent exited with code ${code}`;
-        log.error(reason);
-        appState.isConnected = false;
-        appState.handleError(reason);
-      }
-    });
-
+    appState.setConnected(handle.sessionId, handle.capabilities ? 'ACP Agent' : null);
     log.info('Connected to agent successfully');
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -97,7 +87,8 @@ async function main(): Promise<void> {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       log.error(`Prompt failed: ${message}`);
-      appState.handleError(message);
+      appState.setError(message);
+      appState.conversation.isProcessing = false;
     }
   };
 

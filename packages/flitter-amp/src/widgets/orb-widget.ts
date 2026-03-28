@@ -87,6 +87,7 @@ function fbm(x: number, y: number, octaves: number): number {
   return (value / maxAmplitude + 1) * 0.5;
 }
 
+/** @deprecated Use DensityOrbWidget instead */
 export class OrbWidget extends StatefulWidget {
   createState(): OrbWidgetState {
     return new OrbWidgetState();

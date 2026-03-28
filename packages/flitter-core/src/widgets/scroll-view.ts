@@ -3,7 +3,7 @@
 // Source: amp-strings.txt:529716
 
 import { Widget, StatelessWidget, StatefulWidget, State, type BuildContext } from '../framework/widget';
-import { SingleChildRenderObjectWidget, RenderBox, type PaintContext, type PipelineOwner } from '../framework/render-object';
+import { SingleChildRenderObjectWidget, RenderBox, type PaintContext } from '../framework/render-object';
 import { BoxConstraints } from '../core/box-constraints';
 import { Offset, Size } from '../core/types';
 import { ScrollController } from './scroll-controller';
@@ -130,26 +130,31 @@ class ScrollableState extends State<Scrollable> {
       ctrl.scrollBy(1); return 'handled';
     }
     if (event.key === 'k' || event.key === 'ArrowUp') {
-      ctrl.disableFollowMode();
       ctrl.scrollBy(-1); return 'handled';
     }
     if (event.key === 'g' && !event.ctrlKey && !event.shiftKey) {
-      ctrl.disableFollowMode();
       ctrl.jumpTo(0); return 'handled';
     }
     if (event.key === 'G') {
       ctrl.jumpTo(ctrl.maxScrollExtent); return 'handled';
     }
-    if (event.key === 'PageDown') { ctrl.scrollBy(pageSize); return 'handled'; }
-    if (event.key === 'PageUp')   { ctrl.disableFollowMode(); ctrl.scrollBy(-pageSize); return 'handled'; }
-    if (event.key === 'd' && event.ctrlKey) { ctrl.scrollBy(Math.floor(pageSize / 2)); return 'handled'; }
-    if (event.key === 'u' && event.ctrlKey) { ctrl.disableFollowMode(); ctrl.scrollBy(-Math.floor(pageSize / 2)); return 'handled'; }
+    if (event.key === 'PageDown') {
+      ctrl.scrollBy(pageSize); return 'handled';
+    }
+    if (event.key === 'PageUp') {
+      ctrl.scrollBy(-pageSize); return 'handled';
+    }
+    if (event.key === 'd' && event.ctrlKey) {
+      ctrl.scrollBy(Math.floor(pageSize / 2)); return 'handled';
+    }
+    if (event.key === 'u' && event.ctrlKey) {
+      ctrl.scrollBy(-Math.floor(pageSize / 2)); return 'handled';
+    }
     return 'ignored';
   };
 
   private _handleScroll = (event: { button?: number }): void => {
     if (event.button === 64) {
-      this.effectiveController.disableFollowMode();
       this.effectiveController.scrollBy(-3);
     } else if (event.button === 65) {
       this.effectiveController.scrollBy(3);
@@ -252,19 +257,6 @@ export class RenderScrollViewport extends RenderBox {
     this.scrollController = opts.scrollController;
     this.axisDirection = opts.axisDirection ?? 'vertical';
     this.position = opts.position ?? 'top';
-    this._onScrollChanged = () => this.markNeedsPaint();
-  }
-
-  private _onScrollChanged: () => void;
-
-  override attach(owner: PipelineOwner): void {
-    super.attach(owner);
-    this.scrollController.addListener(this._onScrollChanged);
-  }
-
-  override detach(): void {
-    this.scrollController.removeListener(this._onScrollChanged);
-    super.detach();
   }
 
   get child(): RenderBox | null {

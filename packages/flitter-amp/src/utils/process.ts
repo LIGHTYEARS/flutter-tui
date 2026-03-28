@@ -49,16 +49,26 @@ export function parseCommand(commandStr: string): { command: string; args: strin
 
 /**
  * Spawn an agent subprocess with stdio piped for ACP communication.
- * stderr is inherited so agent error messages show in our terminal.
+ * stderr is piped and forwarded to our logger to avoid corrupting the TUI.
  */
 export function spawnAgent(command: string, args: string[], cwd: string): AgentProcess {
   log.info(`Spawning agent: ${command} ${args.join(' ')}`);
   log.info(`Working directory: ${cwd}`);
 
   const proc = spawn(command, args, {
-    stdio: ['pipe', 'pipe', 'inherit'],
+    stdio: ['pipe', 'pipe', 'pipe'],
     cwd,
     env: { ...process.env },
+  });
+
+  proc.stderr?.on('data', (chunk: Buffer) => {
+    const lines = chunk.toString('utf8').split('\n');
+    for (const line of lines) {
+      const trimmed = line.trimEnd();
+      if (trimmed.length > 0) {
+        log.debug(`[agent] ${trimmed}`);
+      }
+    }
   });
 
   proc.on('error', (err) => {

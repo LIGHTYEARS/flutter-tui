@@ -7,7 +7,6 @@ import { TextSpan } from 'flitter-core/src/core/text-span';
 import { Color } from 'flitter-core/src/core/color';
 import { TextField, TextEditingController } from 'flitter-core/src/widgets/text-field';
 import { Container } from 'flitter-core/src/widgets/container';
-import { BoxConstraints } from 'flitter-core/src/core/box-constraints';
 import { Border, BorderSide, BoxDecoration } from 'flitter-core/src/layout/render-decorated';
 import { Stack, Positioned } from 'flitter-core/src/widgets/stack';
 import { Autocomplete } from 'flitter-core/src/widgets/autocomplete';
@@ -27,6 +26,7 @@ interface InputAreaProps {
   topWidget?: Widget;
   autocompleteTriggers?: AutocompleteTrigger[];
   imageAttachments?: number;
+  skillCount?: number;
   overlayTexts?: BorderOverlayText[];
 }
 
@@ -40,6 +40,7 @@ export class InputArea extends StatefulWidget {
   readonly topWidget?: Widget;
   readonly autocompleteTriggers?: AutocompleteTrigger[];
   readonly imageAttachments: number;
+  readonly skillCount: number;
   readonly overlayTexts: BorderOverlayText[];
 
   constructor(props: InputAreaProps) {
@@ -51,6 +52,7 @@ export class InputArea extends StatefulWidget {
     this.topWidget = props.topWidget;
     this.autocompleteTriggers = props.autocompleteTriggers;
     this.imageAttachments = props.imageAttachments ?? 0;
+    this.skillCount = props.skillCount ?? 0;
     this.overlayTexts = props.overlayTexts ?? [];
   }
 
@@ -80,7 +82,7 @@ class InputAreaState extends State<InputArea> {
       const newShell = detectShellMode(newText);
       this.currentText = newText;
       if (oldShell !== newShell) {
-        this.setState(() => {});
+        this.setState(() => { });
       }
     }
   };
@@ -109,11 +111,10 @@ class InputAreaState extends State<InputArea> {
     const textField = new TextField({
       controller: this.controller,
       autofocus: true,
-      placeholder: 'Ask a question or $ for shell...',
       style: new TextStyle({ foreground: theme?.base.foreground }),
-      maxLines: this.widget.submitWithMeta ? undefined : 1,
-      onSubmitted: this.widget.submitWithMeta ? undefined : this._handleSubmit,
-      onSubmit: this.widget.submitWithMeta ? this._handleSubmit : undefined,
+      cursorChar: '\u2588',
+      submitOnEnter: true,
+      onSubmit: this._handleSubmit,
     });
 
     const defaultFileTrigger: AutocompleteTrigger = {
@@ -135,7 +136,7 @@ class InputAreaState extends State<InputArea> {
     const borderedInput = new Container({
       decoration: new BoxDecoration({ border }),
       padding: EdgeInsets.symmetric({ horizontal: 1 }),
-      constraints: new BoxConstraints({ minHeight: 3 }),
+      height: 5,
       child: autocompleteWrapped,
     });
 
@@ -152,18 +153,37 @@ class InputAreaState extends State<InputArea> {
           ? agentModeColor(effectiveLabel, theme)
           : Color.green;
 
+      const labelText = isProcessing && !shellLabel ? ` ⏳ ${effectiveLabel} ` : ` ${effectiveLabel} `;
+      const labelSpan = new TextSpan({
+        text: labelText,
+        style: new TextStyle({
+          foreground: labelColor,
+          dim: isProcessing && !shellLabel,
+        }),
+      });
+
+      const skillCount = this.widget.skillCount;
+      const badgeChildren: TextSpan[] = [labelSpan];
+
+      if (skillCount > 0) {
+        const mutedColor = theme?.base.mutedForeground ?? Color.brightBlack;
+        const warningColor = theme?.base.warning ?? Color.yellow;
+        badgeChildren.push(
+          new TextSpan({ text: '──', style: new TextStyle({ foreground: mutedColor }) }),
+          new TextSpan({ text: '⚠', style: new TextStyle({ foreground: warningColor }) }),
+          new TextSpan({ text: '─', style: new TextStyle({ foreground: mutedColor }) }),
+          new TextSpan({ text: `${skillCount}`, style: new TextStyle({ foreground: mutedColor }) }),
+          new TextSpan({ text: '─', style: new TextStyle({ foreground: mutedColor }) }),
+          new TextSpan({ text: 'skills', style: new TextStyle({ foreground: mutedColor }) }),
+        );
+      }
+
       overlays.push(
         new Positioned({
           top: 0,
           right: 1,
           child: new Text({
-            text: new TextSpan({
-              text: isProcessing && !shellLabel ? ` ⏳ ${effectiveLabel} ` : ` ${effectiveLabel} `,
-              style: new TextStyle({
-                foreground: labelColor,
-                dim: isProcessing && !shellLabel,
-              }),
-            }),
+            text: new TextSpan({ children: badgeChildren }),
           }),
         }),
       );

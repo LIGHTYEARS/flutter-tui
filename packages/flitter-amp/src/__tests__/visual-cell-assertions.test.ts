@@ -529,13 +529,15 @@ describe('Cell-Level Assertions', () => {
       appState.cwd = '/home/user/project';
       appState.gitBranch = 'main';
       appState.conversation.isProcessing = true;
-      appState.conversation.setUsage({ size: 128000, used: 24500 });
+      appState.conversation.setUsage({ inputTokens: 24500, outputTokens: 3200 });
       appState.conversation.addUserMessage('test');
       appState.conversation.appendAssistantChunk('Working...');
       const grid = capture(appState);
 
+      // Token usage should appear somewhere (exact format may vary)
       const screenText = readScreenText(grid).join('\n');
-      const hasTokenInfo = screenText.includes('24') || screenText.includes('128') || screenText.includes('24.5');
+      // Check for some numeric token representation
+      const hasTokenInfo = screenText.includes('24') || screenText.includes('3200') || screenText.includes('3.2');
       expect(hasTokenInfo).toBe(true);
     });
   });

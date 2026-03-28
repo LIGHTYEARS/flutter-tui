@@ -27,7 +27,7 @@ export const BORDER_CHARS: Record<
 // TextStyle -> CellStyle converter
 // ---------------------------------------------------------------------------
 
-function textStyleToCellStyle(ts: TextStyle): CellStyle {
+export function textStyleToCellStyle(ts: TextStyle): CellStyle {
   const cs: CellStyle = {};
   if (ts.foreground !== undefined) cs.fg = ts.foreground;
   if (ts.background !== undefined) cs.bg = ts.background;
@@ -140,7 +140,6 @@ export class PaintContext {
     const charWidth = width ?? (char.length > 0 ? wcwidth(char.codePointAt(0)!) : 1);
     const effectiveWidth = Math.max(1, charWidth);
 
-    // For wide chars, ensure the full width is within clip
     if (!this.isInClip(x, y, effectiveWidth)) return;
 
     const merged = this._mergeWithExistingBg(x, y, style);

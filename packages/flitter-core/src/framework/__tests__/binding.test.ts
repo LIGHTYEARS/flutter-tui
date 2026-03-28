@@ -110,8 +110,32 @@ describe('WidgetsBinding', () => {
     it('updates constraints', () => {
       const binding = WidgetsBinding.instance;
       binding.attachRootWidget(new TestWidget());
-      // Should not throw
       binding.handleResize(120, 40);
+    });
+
+    it('propagates new size to root render object after drawFrameSync', () => {
+      const binding = WidgetsBinding.instance;
+      binding.attachRootWidget(new TestWidget());
+      binding.drawFrameSync();
+
+      binding.handleResize(224, 64);
+      binding.drawFrameSync();
+
+      const rootRO = binding.pipelineOwner.rootNode;
+      expect(rootRO).not.toBeNull();
+      expect(rootRO!.size.width).toBe(224);
+      expect(rootRO!.size.height).toBe(64);
+    });
+
+    it('default test size is 80x24 before any resize', () => {
+      const binding = WidgetsBinding.instance;
+      binding.attachRootWidget(new TestWidget());
+      binding.drawFrameSync();
+
+      const rootRO = binding.pipelineOwner.rootNode;
+      expect(rootRO).not.toBeNull();
+      expect(rootRO!.size.width).toBe(80);
+      expect(rootRO!.size.height).toBe(24);
     });
   });
 

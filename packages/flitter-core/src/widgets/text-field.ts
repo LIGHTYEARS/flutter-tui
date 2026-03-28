@@ -596,6 +596,7 @@ export class TextField extends StatefulWidget {
   readonly selectionColor?: Color;
   readonly cursorChar?: string;
   readonly maxLines?: number;
+  readonly submitOnEnter?: boolean;
   readonly onSubmit?: (text: string) => void;
   readonly onSubmitted?: (text: string) => void;
   readonly onChanged?: (text: string) => void;
@@ -610,6 +611,7 @@ export class TextField extends StatefulWidget {
     selectionColor?: Color;
     cursorChar?: string;
     maxLines?: number;
+    submitOnEnter?: boolean;
     onSubmit?: (text: string) => void;
     onSubmitted?: (text: string) => void;
     onChanged?: (text: string) => void;
@@ -623,6 +625,7 @@ export class TextField extends StatefulWidget {
     this.selectionColor = opts?.selectionColor;
     this.cursorChar = opts?.cursorChar;
     this.maxLines = opts?.maxLines;
+    this.submitOnEnter = opts?.submitOnEnter;
     this.onSubmit = opts?.onSubmit;
     this.onSubmitted = opts?.onSubmitted;
     this.onChanged = opts?.onChanged;
@@ -883,11 +886,9 @@ class TextFieldState extends State<TextField> {
           return 'handled';
         case 'Enter':
         case 'Return':
-          if (isMultiLine) {
-            // In multi-line, Enter inserts a newline
+          if (isMultiLine && !this.widget.submitOnEnter) {
             this._controller.insertText('\n');
           } else {
-            // In single-line, Enter submits
             this._submit();
           }
           return 'handled';

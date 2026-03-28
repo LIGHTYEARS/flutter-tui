@@ -61,7 +61,6 @@ export class RenderConstrainedBox extends RenderBox {
   performLayout(): void {
     const constraints = this.constraints!;
 
-    // Enforce additional constraints within parent constraints
     const enforced = this._additionalConstraints.enforce(constraints);
 
     if (this._child) {

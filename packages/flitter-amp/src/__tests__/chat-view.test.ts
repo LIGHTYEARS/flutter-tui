@@ -74,7 +74,7 @@ describe('ChatView: Widget Tree Structure', () => {
       expect(widget.constructor.name).toBe('Column');
     });
 
-    it('welcome screen contains OrbWidget and text content in a Row', () => {
+    it('welcome screen contains DensityOrbWidget and text content in a Row', () => {
       const view = buildChatView([]);
       const widget = view.build({} as any) as any;
       const children = widget.children ?? widget._children;

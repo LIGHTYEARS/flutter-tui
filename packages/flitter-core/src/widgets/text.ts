@@ -12,6 +12,8 @@ import { stringWidth } from '../core/wcwidth';
 import { LeafRenderObjectWidget, RenderBox, PaintContext } from '../framework/render-object';
 import { MouseManager } from '../input/mouse-manager';
 import { SystemMouseCursors } from '../input/mouse-cursors';
+import { textStyleToCellStyle } from '../scheduler/paint-context';
+import type { CellStyle } from '../terminal/cell';
 
 // ---------------------------------------------------------------------------
 // Selection range type
@@ -48,8 +50,8 @@ export interface CharacterInteraction {
 // ---------------------------------------------------------------------------
 
 export interface TextPaintContext extends PaintContext {
-  drawChar?(col: number, row: number, char: string, style?: TextStyle): void;
-  drawText?(col: number, row: number, text: string, style?: TextStyle): void;
+  drawChar?(col: number, row: number, char: string, style?: CellStyle): void;
+  drawText?(col: number, row: number, text: string, style?: CellStyle): void;
 }
 
 // ---------------------------------------------------------------------------
@@ -604,9 +606,9 @@ export class RenderText extends RenderBox {
         const globalCharIdx = charIndex + ci;
         if (this.selectable && highlightColor && highlightedIndices.has(globalCharIdx)) {
           const highlightedStyle = style.copyWith({ background: highlightColor });
-          ctx.drawChar!(col, row, char, highlightedStyle);
+          ctx.drawChar!(col, row, char, textStyleToCellStyle(highlightedStyle));
         } else {
-          ctx.drawChar!(col, row, char, style);
+          ctx.drawChar!(col, row, char, textStyleToCellStyle(style));
         }
         col += charW;
       }

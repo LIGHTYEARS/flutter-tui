@@ -7,6 +7,7 @@ import { TextSpan } from '../../core/text-span';
 import { Color } from '../../core/color';
 import { Offset, Rect } from '../../core/types';
 import { BoxConstraints } from '../../core/box-constraints';
+import type { CellStyle } from '../../terminal/cell';
 import {
   RenderText,
   TextSelectionRange,
@@ -19,9 +20,9 @@ import {
 // ---------------------------------------------------------------------------
 
 class TestPaintContext {
-  chars: { col: number; row: number; char: string; style?: TextStyle }[] = [];
+  chars: { col: number; row: number; char: string; style?: CellStyle }[] = [];
 
-  drawChar(col: number, row: number, char: string, style?: TextStyle): void {
+  drawChar(col: number, row: number, char: string, style?: CellStyle): void {
     this.chars.push({ col, row, char, style });
   }
 
@@ -35,7 +36,7 @@ class TestPaintContext {
   }
 
   /** Get chars with their styles at a specific row. */
-  getRowWithStyles(row: number): { col: number; char: string; style?: TextStyle }[] {
+  getRowWithStyles(row: number): { col: number; char: string; style?: CellStyle }[] {
     return this.chars
       .filter((c) => c.row === row)
       .sort((a, b) => a.col - b.col);
@@ -185,7 +186,7 @@ describe('RenderText selection painting', () => {
     const ctx = layoutAndPaint(rt);
     // No highlighting should be applied even with selectedRanges set
     for (const ch of ctx.chars) {
-      expect(ch.style?.background).toBeUndefined();
+      expect(ch.style?.bg).toBeUndefined();
     }
   });
 
@@ -202,13 +203,13 @@ describe('RenderText selection painting', () => {
     rt.paint(ctx as any, Offset.zero);
 
     // Characters 0 and 4 should NOT have highlight
-    expect(ctx.chars[0]!.style?.background).toBeUndefined();
-    expect(ctx.chars[4]!.style?.background).toBeUndefined();
+    expect(ctx.chars[0]!.style?.bg).toBeUndefined();
+    expect(ctx.chars[4]!.style?.bg).toBeUndefined();
 
     // Characters 1, 2, 3 should have highlight background
-    expect(ctx.chars[1]!.style?.background?.equals(selColor)).toBe(true);
-    expect(ctx.chars[2]!.style?.background?.equals(selColor)).toBe(true);
-    expect(ctx.chars[3]!.style?.background?.equals(selColor)).toBe(true);
+    expect(ctx.chars[1]!.style?.bg?.equals(selColor)).toBe(true);
+    expect(ctx.chars[2]!.style?.bg?.equals(selColor)).toBe(true);
+    expect(ctx.chars[3]!.style?.bg?.equals(selColor)).toBe(true);
   });
 
   it('uses copy highlight color in copy mode', () => {
@@ -226,9 +227,9 @@ describe('RenderText selection painting', () => {
     rt.paint(ctx as any, Offset.zero);
 
     // Characters 0, 1, 2 should use copy highlight color
-    expect(ctx.chars[0]!.style?.background?.equals(copyColor)).toBe(true);
-    expect(ctx.chars[1]!.style?.background?.equals(copyColor)).toBe(true);
-    expect(ctx.chars[2]!.style?.background?.equals(copyColor)).toBe(true);
+    expect(ctx.chars[0]!.style?.bg?.equals(copyColor)).toBe(true);
+    expect(ctx.chars[1]!.style?.bg?.equals(copyColor)).toBe(true);
+    expect(ctx.chars[2]!.style?.bg?.equals(copyColor)).toBe(true);
   });
 
   it('falls back to selection color when copy color not set', () => {
@@ -244,8 +245,8 @@ describe('RenderText selection painting', () => {
     rt.paint(ctx as any, Offset.zero);
 
     // Should fall back to selectionColor
-    expect(ctx.chars[0]!.style?.background?.equals(selColor)).toBe(true);
-    expect(ctx.chars[1]!.style?.background?.equals(selColor)).toBe(true);
+    expect(ctx.chars[0]!.style?.bg?.equals(selColor)).toBe(true);
+    expect(ctx.chars[1]!.style?.bg?.equals(selColor)).toBe(true);
   });
 
   it('does not highlight when highlight mode is none', () => {
@@ -263,7 +264,7 @@ describe('RenderText selection painting', () => {
 
     // No highlight because highlightMode is 'none'
     for (const ch of ctx.chars) {
-      expect(ch.style?.background).toBeUndefined();
+      expect(ch.style?.bg).toBeUndefined();
     }
   });
 
@@ -287,27 +288,27 @@ describe('RenderText selection painting', () => {
 
     // 'a' at index 0 — not highlighted
     expect(ctx.chars[0]!.char).toBe('a');
-    expect(ctx.chars[0]!.style?.background).toBeUndefined();
+    expect(ctx.chars[0]!.style?.bg).toBeUndefined();
 
     // 'b' at index 1 — highlighted
     expect(ctx.chars[1]!.char).toBe('b');
-    expect(ctx.chars[1]!.style?.background?.equals(selColor)).toBe(true);
+    expect(ctx.chars[1]!.style?.bg?.equals(selColor)).toBe(true);
 
     // 'c' at index 2 — highlighted
     expect(ctx.chars[2]!.char).toBe('c');
-    expect(ctx.chars[2]!.style?.background?.equals(selColor)).toBe(true);
+    expect(ctx.chars[2]!.style?.bg?.equals(selColor)).toBe(true);
 
     // 'd' at index 3 — highlighted
     expect(ctx.chars[3]!.char).toBe('d');
-    expect(ctx.chars[3]!.style?.background?.equals(selColor)).toBe(true);
+    expect(ctx.chars[3]!.style?.bg?.equals(selColor)).toBe(true);
 
     // 'e' at index 4 — highlighted
     expect(ctx.chars[4]!.char).toBe('e');
-    expect(ctx.chars[4]!.style?.background?.equals(selColor)).toBe(true);
+    expect(ctx.chars[4]!.style?.bg?.equals(selColor)).toBe(true);
 
     // 'f' at index 5 — not highlighted
     expect(ctx.chars[5]!.char).toBe('f');
-    expect(ctx.chars[5]!.style?.background).toBeUndefined();
+    expect(ctx.chars[5]!.style?.bg).toBeUndefined();
   });
 
   it('preserves existing style attributes when highlighting', () => {
@@ -327,8 +328,8 @@ describe('RenderText selection painting', () => {
     // All characters should be highlighted AND keep bold + foreground
     for (const ch of ctx.chars) {
       expect(ch.style?.bold).toBe(true);
-      expect(ch.style?.foreground?.equals(Color.red)).toBe(true);
-      expect(ch.style?.background?.equals(selColor)).toBe(true);
+      expect(ch.style?.fg?.equals(Color.red)).toBe(true);
+      expect(ch.style?.bg?.equals(selColor)).toBe(true);
     }
   });
 });
@@ -640,12 +641,12 @@ describe('RenderText selection + position integration', () => {
 
     // Characters 0-5 (including space) should NOT be highlighted
     for (let i = 0; i < 6; i++) {
-      expect(ctx.chars[i]!.style?.background).toBeUndefined();
+      expect(ctx.chars[i]!.style?.bg).toBeUndefined();
     }
 
     // Characters 6-10 should be highlighted ("world")
     for (let i = 6; i <= 10; i++) {
-      expect(ctx.chars[i]!.style?.background?.equals(selColor)).toBe(true);
+      expect(ctx.chars[i]!.style?.bg?.equals(selColor)).toBe(true);
     }
   });
 
@@ -685,10 +686,10 @@ describe('RenderText selection + position integration', () => {
 
     // 'l' at index 2 (bold span) — highlighted with bold preserved
     expect(ctx.chars[2]!.style?.bold).toBe(true);
-    expect(ctx.chars[2]!.style?.background?.equals(selColor)).toBe(true);
+    expect(ctx.chars[2]!.style?.bg?.equals(selColor)).toBe(true);
 
     // 'n' at index 4 (normal span) — highlighted without bold
     expect(ctx.chars[4]!.style?.bold).toBeUndefined();
-    expect(ctx.chars[4]!.style?.background?.equals(selColor)).toBe(true);
+    expect(ctx.chars[4]!.style?.bg?.equals(selColor)).toBe(true);
   });
 });
