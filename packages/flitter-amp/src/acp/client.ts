@@ -16,6 +16,8 @@ export interface ClientCallbacks {
   onPermissionRequest(request: PermissionRequest): Promise<string | null>;
   /** Called when a session completes a prompt (stop reason received) */
   onPromptComplete(sessionId: string, stopReason: string): void;
+  /** Called when the agent connection is closed unexpectedly */
+  onConnectionClosed(reason: string): void;
 }
 
 export interface SessionUpdate {
@@ -41,19 +43,23 @@ export interface PermissionRequest {
   }>;
 }
 
+interface TerminalBuffer {
+  output: string;
+  byteCount: number;
+  limit: number | null;
+}
+
 /**
  * FlitterClient — Implements the ACP Client interface.
  *
  * When the ACP agent needs something from us (read a file, write a file,
  * run a terminal command, ask for permission), it calls methods on this client
  * via JSON-RPC. We handle these requests and respond.
- *
- * Note: The actual acp.Client interface shape will be matched at runtime.
- * We implement the methods that AgentSideConnection expects to call on us.
  */
 export class FlitterClient {
   private callbacks: ClientCallbacks;
   private terminals: Map<string, ChildProcess> = new Map();
+  private terminalBuffers: Map<string, TerminalBuffer> = new Map();
 
   constructor(callbacks: ClientCallbacks) {
     this.callbacks = callbacks;
@@ -98,6 +104,7 @@ export class FlitterClient {
 
   /**
    * terminal/create — Agent wants to run a command.
+   * Starts persistent output collection immediately.
    */
   async createTerminal(params: {
     command: string;
@@ -124,38 +131,55 @@ export class FlitterClient {
     });
 
     this.terminals.set(terminalId, proc);
+
+    // Start persistent output collection immediately
+    const buffer: TerminalBuffer = {
+      output: '',
+      byteCount: 0,
+      limit: params.outputByteLimit ?? null,
+    };
+    this.terminalBuffers.set(terminalId, buffer);
+
+    const appendOutput = (chunk: Buffer) => {
+      if (buffer.limit !== null && buffer.byteCount >= buffer.limit) return;
+      const text = chunk.toString();
+      const bytes = chunk.byteLength;
+      if (buffer.limit !== null && buffer.byteCount + bytes > buffer.limit) {
+        const remaining = buffer.limit - buffer.byteCount;
+        buffer.output += text.slice(0, remaining);
+        buffer.byteCount = buffer.limit;
+      } else {
+        buffer.output += text;
+        buffer.byteCount += bytes;
+      }
+    };
+
+    proc.stdout?.on('data', appendOutput);
+    proc.stderr?.on('data', appendOutput);
+
     return { terminalId };
   }
 
   /**
    * terminal/output — Agent wants current output of a terminal.
+   * Reads from the persistent buffer — no new listeners registered.
    */
   async terminalOutput(params: { terminalId: string; sessionId: string }): Promise<{
     terminal: { terminalId: string; output: string; exitStatus?: { code: number } | null };
   }> {
     const proc = this.terminals.get(params.terminalId);
-    if (!proc) {
+    const buffer = this.terminalBuffers.get(params.terminalId);
+
+    if (!proc || !buffer) {
       return {
         terminal: { terminalId: params.terminalId, output: '', exitStatus: { code: -1 } },
       };
     }
 
-    // Collect whatever output is available
-    let output = '';
-    proc.stdout?.on('data', (chunk: Buffer) => {
-      output += chunk.toString();
-    });
-    proc.stderr?.on('data', (chunk: Buffer) => {
-      output += chunk.toString();
-    });
-
-    // Brief wait to collect output
-    await new Promise(resolve => setTimeout(resolve, 100));
-
     return {
       terminal: {
         terminalId: params.terminalId,
-        output,
+        output: buffer.output,
         exitStatus: proc.exitCode !== null ? { code: proc.exitCode } : null,
       },
     };
@@ -163,22 +187,24 @@ export class FlitterClient {
 
   /**
    * terminal/wait_for_exit — Block until the terminal command finishes.
+   * Returns flat {exitCode, signal} to match SDK WaitForTerminalExitResponse.
    */
   async waitForTerminalExit(params: { terminalId: string; sessionId: string }): Promise<{
-    exitStatus: { code: number };
+    exitCode?: number | null;
+    signal?: string | null;
   }> {
     const proc = this.terminals.get(params.terminalId);
     if (!proc) {
-      return { exitStatus: { code: -1 } };
+      return { exitCode: -1, signal: null };
     }
 
     if (proc.exitCode !== null) {
-      return { exitStatus: { code: proc.exitCode } };
+      return { exitCode: proc.exitCode, signal: proc.signalCode ?? null };
     }
 
     return new Promise(resolve => {
-      proc.on('exit', (code) => {
-        resolve({ exitStatus: { code: code ?? -1 } });
+      proc.on('exit', (code, signal) => {
+        resolve({ exitCode: code ?? null, signal: signal ?? null });
       });
     });
   }
@@ -202,6 +228,7 @@ export class FlitterClient {
       proc.kill('SIGTERM');
     }
     this.terminals.delete(params.terminalId);
+    this.terminalBuffers.delete(params.terminalId);
   }
 
   /** Cleanup all terminals on shutdown */
@@ -210,5 +237,6 @@ export class FlitterClient {
       if (!proc.killed) proc.kill('SIGTERM');
     }
     this.terminals.clear();
+    this.terminalBuffers.clear();
   }
 }

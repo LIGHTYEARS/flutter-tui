@@ -1,5 +1,4 @@
 // AppState — global application state bridging ACP events to the TUI
-// This will be exposed as an InheritedWidget in Phase 2
 
 import { ConversationState } from './conversation';
 import { log } from '../utils/logger';
@@ -80,7 +79,7 @@ export class AppState implements ClientCallbacks {
         break;
       }
 
-      case 'thinking_chunk': {
+      case 'agent_thought_chunk': {
         const content = update.content as { type: string; text?: string };
         if (content?.type === 'text' && content.text) {
           this.conversation.appendThinkingChunk(content.text);
@@ -120,22 +119,22 @@ export class AppState implements ClientCallbacks {
         break;
       }
 
-      case 'usage': {
-        const usage = update.usage as { input_tokens?: number; output_tokens?: number; cost?: number };
+      case 'usage_update': {
+        const usage = update as { size?: number; used?: number; cost?: { amount: number; currency: string } | null };
         this.conversation.setUsage({
-          inputTokens: usage.input_tokens ?? 0,
-          outputTokens: usage.output_tokens ?? 0,
+          size: usage.size ?? 0,
+          used: usage.used ?? 0,
           cost: usage.cost,
         });
         break;
       }
 
-      case 'current_mode': {
+      case 'current_mode_update': {
         this.currentMode = update.currentModeId as string;
         break;
       }
 
-      case 'session_info': {
+      case 'session_info_update': {
         // Session metadata update
         break;
       }
@@ -161,6 +160,22 @@ export class AppState implements ClientCallbacks {
     this.conversation.finalizeThinking();
     this.conversation.isProcessing = false;
     log.info(`Prompt complete: ${stopReason}`);
+    this.notifyListeners();
+  }
+
+  onConnectionClosed(reason: string): void {
+    this.handleError(`Agent disconnected: ${reason}`);
+    this.isConnected = false;
+    this.notifyListeners();
+  }
+
+  // --- Error Handling ---
+
+  handleError(message: string): void {
+    this.conversation.finalizeAssistantMessage();
+    this.conversation.finalizeThinking();
+    this.conversation.isProcessing = false;
+    this.error = message;
     this.notifyListeners();
   }
 

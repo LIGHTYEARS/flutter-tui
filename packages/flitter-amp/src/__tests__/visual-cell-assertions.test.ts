@@ -529,7 +529,7 @@ describe('Cell-Level Assertions', () => {
       appState.cwd = '/home/user/project';
       appState.gitBranch = 'main';
       appState.conversation.isProcessing = true;
-      appState.conversation.setUsage({ inputTokens: 24500, outputTokens: 3200 });
+      appState.conversation.setUsage({ size: 128000, used: 27700 });
       appState.conversation.addUserMessage('test');
       appState.conversation.appendAssistantChunk('Working...');
       const grid = capture(appState);

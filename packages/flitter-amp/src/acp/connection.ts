@@ -11,6 +11,7 @@ export interface ConnectionHandle {
   client: FlitterClient;
   agent: AgentProcess;
   capabilities: acp.AgentCapabilities | undefined;
+  agentInfo?: { name?: string; title?: string };
   sessionId: string;
 }
 
@@ -52,6 +53,10 @@ export async function connectToAgent(
   const initResponse = await connection.initialize({
     protocolVersion: acp.PROTOCOL_VERSION,
     clientInfo: { name: 'flitter-amp', version: '0.1.0' },
+    clientCapabilities: {
+      fs: { readTextFile: true, writeTextFile: true },
+      terminal: true,
+    },
   });
   log.info('Agent initialized:', initResponse.agentInfo?.name ?? 'unknown');
   log.info('Agent capabilities:', JSON.stringify(initResponse.agentCapabilities));
@@ -69,6 +74,7 @@ export async function connectToAgent(
     client,
     agent,
     capabilities: initResponse.agentCapabilities,
+    agentInfo: initResponse.agentInfo as { name?: string; title?: string } | undefined,
     sessionId: sessionResponse.sessionId,
   };
 }

@@ -38,12 +38,12 @@ export class HeaderBar extends StatelessWidget {
 
     const leftText = leftParts.join(' ');
 
-    // Right side: token usage + cost
+    // Right side: context usage + cost
     let rightText = '';
     if (usage) {
-      rightText = `${usage.inputTokens + usage.outputTokens} tokens`;
-      if (usage.cost !== undefined) {
-        rightText += ` ($${usage.cost.toFixed(4)})`;
+      rightText = `${usage.used} / ${usage.size}`;
+      if (usage.cost) {
+        rightText += ` (${usage.cost.currency}${usage.cost.amount.toFixed(4)})`;
       }
       rightText += ' ';
     }

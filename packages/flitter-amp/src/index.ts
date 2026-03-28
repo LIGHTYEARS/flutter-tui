@@ -45,7 +45,7 @@ async function main(): Promise<void> {
       config.cwd,
       appState,
     );
-    appState.setConnected(handle.sessionId, handle.capabilities ? 'ACP Agent' : null);
+    appState.setConnected(handle.sessionId, handle.agentInfo?.name ?? null);
     log.info('Connected to agent successfully');
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -59,6 +59,15 @@ async function main(): Promise<void> {
     process.stderr.write('  flitter-amp --agent "gemini --experimental-acp"\n');
     process.exit(1);
   }
+
+  // Monitor agent process for unexpected exit (PROTO-04)
+  handle.agent.on('exit', (code: number | null, signal: string | null) => {
+    if (appState.isConnected) {
+      const reason = signal ? `killed by ${signal}` : `exited with code ${code}`;
+      log.error(`Agent process ${reason}`);
+      appState.onConnectionClosed(reason);
+    }
+  });
 
   // Handle process cleanup
   const cleanup = () => {
@@ -87,8 +96,7 @@ async function main(): Promise<void> {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       log.error(`Prompt failed: ${message}`);
-      appState.setError(message);
-      appState.conversation.isProcessing = false;
+      appState.handleError(message);
     }
   };
 

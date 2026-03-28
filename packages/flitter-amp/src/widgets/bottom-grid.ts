@@ -131,11 +131,15 @@ class BottomGridState extends State<BottomGrid> {
   private buildTopLeft(w: BottomGrid, mutedColor: Color, _fgColor: Color): Widget {
     if (w.isProcessing) {
       if (w.tokenUsage) {
-        const inTok = this.formatTokenCount(w.tokenUsage.inputTokens);
-        const outTok = this.formatTokenCount(w.tokenUsage.outputTokens);
+        const used = this.formatTokenCount(w.tokenUsage.used);
+        const size = this.formatTokenCount(w.tokenUsage.size);
+        let display = `${used} / ${size}`;
+        if (w.tokenUsage.cost) {
+          display += ` · ${w.tokenUsage.cost.currency}${w.tokenUsage.cost.amount.toFixed(4)}`;
+        }
         return new Text({
           text: new TextSpan({
-            text: `${inTok} in / ${outTok} out`,
+            text: display,
             style: new TextStyle({ foreground: mutedColor, dim: true }),
           }),
         });
