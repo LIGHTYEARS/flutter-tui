@@ -34,8 +34,8 @@ describe('Agent subprocess: stderr handling', () => {
       require.resolve('../utils/process.ts'),
       'utf8',
     );
-    expect(src).toContain("stdio: ['pipe', 'pipe', 'pipe']");
-    expect(src).not.toContain("stdio: ['pipe', 'pipe', 'inherit']");
+    expect(src).toContain("stderr: 'pipe'");
+    expect(src).not.toContain("stderr: 'inherit'");
   });
 
   it('spawnAgent reads agent stderr and forwards to logger', () => {

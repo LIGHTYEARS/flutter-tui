@@ -1,13 +1,25 @@
-// Agent subprocess management — spawn, monitor, and cleanup
+// Agent subprocess management — spawn via Bun.spawn, monitor, and cleanup
 
-import { spawn, type ChildProcess } from 'node:child_process';
 import { log } from './logger';
 
+/**
+ * Abstraction over a spawned agent subprocess.
+ * Hides the underlying Bun.Subprocess — consumers interact only through
+ * typed stdin/stdout streams, kill(), and onExit().
+ */
 export interface AgentProcess {
-  proc: ChildProcess;
-  stdin: NodeJS.WritableStream;
-  stdout: NodeJS.ReadableStream;
+  /** WritableStream that feeds the agent's stdin (for ndJsonStream). */
+  stdin: WritableStream<Uint8Array>;
+  /** ReadableStream from the agent's stdout (for ndJsonStream). */
+  stdout: ReadableStream<Uint8Array>;
+  /** Terminate the agent process (SIGTERM, then SIGKILL after 3 s). */
   kill(): void;
+  /**
+   * Register a callback that fires once when the agent exits.
+   * `code` is the exit code (null if killed by signal).
+   * `signal` is the signal name (null if exited normally).
+   */
+  onExit(cb: (code: number | null, signal: string | null) => void): void;
 }
 
 /**
@@ -48,57 +60,91 @@ export function parseCommand(commandStr: string): { command: string; args: strin
 }
 
 /**
- * Spawn an agent subprocess with stdio piped for ACP communication.
+ * Wrap a Bun FileSink into a standard WritableStream<Uint8Array>.
+ * ndJsonStream expects a WritableStream, but Bun.spawn stdin returns a FileSink.
+ */
+function fileSinkToWritableStream(sink: ReturnType<typeof Bun.spawn>['stdin'] & { write: Function; flush: Function; end: Function }): WritableStream<Uint8Array> {
+  return new WritableStream<Uint8Array>({
+    write(chunk) {
+      sink.write(chunk);
+      sink.flush();
+    },
+    close() {
+      sink.end();
+    },
+    abort() {
+      sink.end();
+    },
+  });
+}
+
+/**
+ * Spawn an agent subprocess via Bun.spawn with stdio piped for ACP communication.
  * stderr is piped and forwarded to our logger to avoid corrupting the TUI.
  */
 export function spawnAgent(command: string, args: string[], cwd: string): AgentProcess {
   log.info(`Spawning agent: ${command} ${args.join(' ')}`);
   log.info(`Working directory: ${cwd}`);
 
-  const proc = spawn(command, args, {
-    stdio: ['pipe', 'pipe', 'pipe'],
+  const proc = Bun.spawn([command, ...args], {
+    stdin: 'pipe',
+    stdout: 'pipe',
+    stderr: 'pipe',
     cwd,
-    env: { ...process.env },
+    env: process.env,
   });
 
-  proc.stderr?.on('data', (chunk: Buffer) => {
-    const lines = chunk.toString('utf8').split('\n');
-    for (const line of lines) {
-      const trimmed = line.trimEnd();
-      if (trimmed.length > 0) {
-        log.debug(`[agent] ${trimmed}`);
+  // Drain stderr to logger (async, fire-and-forget)
+  if (proc.stderr) {
+    const reader = proc.stderr.getReader();
+    const decoder = new TextDecoder();
+    (async () => {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const lines = decoder.decode(value, { stream: true }).split('\n');
+          for (const line of lines) {
+            const trimmed = line.trimEnd();
+            if (trimmed.length > 0) {
+              log.debug(`[agent] ${trimmed}`);
+            }
+          }
+        }
+      } catch {
+        // stderr stream closed — expected on process exit
       }
-    }
-  });
+    })();
+  }
 
-  proc.on('error', (err) => {
-    log.error(`Agent process error: ${err.message}`);
-  });
-
-  proc.on('exit', (code, signal) => {
-    if (signal) {
-      log.info(`Agent process killed by signal: ${signal}`);
-    } else {
-      log.info(`Agent process exited with code: ${code}`);
-    }
-  });
+  const stdinStream = fileSinkToWritableStream(proc.stdin as any);
 
   return {
-    proc,
-    stdin: proc.stdin!,
-    stdout: proc.stdout!,
+    stdin: stdinStream,
+    stdout: proc.stdout as ReadableStream<Uint8Array>,
     kill() {
       if (!proc.killed) {
         log.info('Killing agent process');
-        proc.kill('SIGTERM');
-        // Force kill after 3 seconds if still alive
+        proc.kill();
         setTimeout(() => {
           if (!proc.killed) {
             log.warn('Agent did not exit, sending SIGKILL');
-            proc.kill('SIGKILL');
+            proc.kill(9);
           }
         }, 3000);
       }
+    },
+    onExit(cb) {
+      proc.exited.then(() => {
+        const code = proc.exitCode;
+        const signal = proc.signalCode ?? null;
+        if (signal) {
+          log.info(`Agent process killed by signal: ${signal}`);
+        } else {
+          log.info(`Agent process exited with code: ${code}`);
+        }
+        cb(code, signal);
+      });
     },
   };
 }

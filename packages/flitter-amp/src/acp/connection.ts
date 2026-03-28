@@ -1,7 +1,6 @@
 // ACP Connection — spawn agent subprocess and establish ClientSideConnection
 
 import * as acp from '@agentclientprotocol/sdk';
-import { Readable, Writable } from 'node:stream';
 import { log } from '../utils/logger';
 import { spawnAgent, type AgentProcess } from '../utils/process';
 import { FlitterClient, type ClientCallbacks } from './client';
@@ -20,7 +19,7 @@ export interface ConnectionHandle {
  *
  * Flow:
  * 1. Spawn agent process
- * 2. Create ndJsonStream over stdin/stdout
+ * 2. Create ndJsonStream over stdin/stdout (already Web Streams from Bun.spawn)
  * 3. Create ClientSideConnection with our FlitterClient
  * 4. Send initialize request
  * 5. Create a new session
@@ -35,10 +34,8 @@ export async function connectToAgent(
   // 1. Spawn the agent subprocess
   const agent = spawnAgent(agentCommand, agentArgs, cwd);
 
-  // 2. Create ACP stream over subprocess stdio
-  const input = Readable.toWeb(agent.stdout as any) as ReadableStream<Uint8Array>;
-  const output = Writable.toWeb(agent.stdin as any) as WritableStream<Uint8Array>;
-  const stream = acp.ndJsonStream(output, input);
+  // 2. Create ACP stream — agent.stdin/stdout are already Web Streams
+  const stream = acp.ndJsonStream(agent.stdin, agent.stdout);
 
   // 3. Create client and connection
   // ClientSideConnection takes a factory: (agentProxy: Agent) => Client

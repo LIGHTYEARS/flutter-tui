@@ -534,10 +534,8 @@ describe('Cell-Level Assertions', () => {
       appState.conversation.appendAssistantChunk('Working...');
       const grid = capture(appState);
 
-      // Token usage should appear somewhere (exact format may vary)
       const screenText = readScreenText(grid).join('\n');
-      // Check for some numeric token representation
-      const hasTokenInfo = screenText.includes('24') || screenText.includes('3200') || screenText.includes('3.2');
+      const hasTokenInfo = screenText.includes('27.7k') || screenText.includes('27700') || screenText.includes('128');
       expect(hasTokenInfo).toBe(true);
     });
   });

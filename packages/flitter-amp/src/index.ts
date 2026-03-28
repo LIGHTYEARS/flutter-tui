@@ -61,7 +61,7 @@ async function main(): Promise<void> {
   }
 
   // Monitor agent process for unexpected exit (PROTO-04)
-  handle.agent.on('exit', (code: number | null, signal: string | null) => {
+  handle.agent.onExit((code, signal) => {
     if (appState.isConnected) {
       const reason = signal ? `killed by ${signal}` : `exited with code ${code}`;
       log.error(`Agent process ${reason}`);
